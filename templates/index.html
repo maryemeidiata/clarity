@@ -1,0 +1,709 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Clarity</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600;9..40,700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0F0B1A;
+    --surface: rgba(255,255,255,0.04);
+    --surface-hover: rgba(255,255,255,0.07);
+    --glass: rgba(255,255,255,0.06);
+    --glass-border: rgba(255,255,255,0.08);
+    --purple: #7C6FF7;
+    --purple-bright: #9F8FFF;
+    --purple-glow: rgba(124,111,247,0.15);
+    --purple-deep: #4F46E5;
+    --text: #E8E4F0;
+    --text-secondary: rgba(255,255,255,0.5);
+    --text-muted: rgba(255,255,255,0.3);
+    --green: #34D399;
+    --green-bg: rgba(52,211,153,0.1);
+    --red: #F87171;
+    --red-bg: rgba(248,113,113,0.1);
+    --amber: #FBBF24;
+    --amber-bg: rgba(251,191,36,0.1);
+    --card-radius: 20px;
+    --small-radius: 14px;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'DM Sans', -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+  body::before {
+    content: '';
+    position: fixed;
+    top: -200px; left: 50%; transform: translateX(-50%);
+    width: 600px; height: 600px;
+    background: radial-gradient(circle, rgba(124,111,247,0.12) 0%, transparent 70%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* NAV */
+  .nav {
+    position: sticky; top: 0; z-index: 100;
+    background: rgba(15,11,26,0.8);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-bottom: 1px solid var(--glass-border);
+    padding: 14px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .nav-left { display: flex; align-items: center; gap: 10px; }
+  .nav-logo {
+    font-size: 20px; font-weight: 700;
+    background: linear-gradient(135deg, var(--purple-bright), #C4B5FD);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .nav-dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--green);
+    box-shadow: 0 0 8px var(--green);
+  }
+
+  /* TIMER */
+  .timer-display {
+    font-size: 13px;
+    color: var(--text-secondary);
+    display: flex; align-items: center; gap: 8px;
+  }
+  .timer-value {
+    font-family: 'DM Sans', monospace;
+    font-weight: 600;
+    color: var(--purple-bright);
+    font-size: 14px;
+  }
+  .timer-set-btn {
+    background: var(--glass);
+    border: 1px solid var(--glass-border);
+    color: var(--text-secondary);
+    font-size: 12px;
+    padding: 4px 10px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-family: inherit;
+    transition: all 0.2s;
+  }
+  .timer-set-btn:hover { background: var(--surface-hover); color: var(--text); }
+
+  .container {
+    max-width: 580px;
+    margin: 0 auto;
+    padding: 24px 16px 100px;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* GLASS CARD BASE */
+  .glass-card {
+    background: var(--glass);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--card-radius);
+    padding: 24px;
+    margin-bottom: 16px;
+  }
+
+  /* INPUT SECTION */
+  .input-section h2 {
+    font-size: 20px; font-weight: 600;
+    margin-bottom: 3px;
+  }
+  .input-section .subtitle {
+    font-size: 13px;
+    color: var(--text-secondary);
+    margin-bottom: 18px;
+  }
+
+  /* MOOD SELECTOR */
+  .mood-row {
+    display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap;
+  }
+  .mood-btn {
+    padding: 8px 16px;
+    border-radius: 24px;
+    border: 1px solid var(--glass-border);
+    background: var(--surface);
+    color: var(--text-secondary);
+    font-size: 13px;
+    font-weight: 500;
+    font-family: inherit;
+    cursor: pointer;
+    transition: all 0.25s;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .mood-btn:hover { background: var(--surface-hover); color: var(--text); border-color: rgba(255,255,255,0.15); }
+  .mood-btn.selected {
+    background: var(--purple-glow);
+    border-color: var(--purple);
+    color: var(--purple-bright);
+  }
+  .mood-icon { font-size: 15px; }
+
+  /* PRESETS */
+  .preset-row {
+    display: flex; gap: 6px; margin-bottom: 16px; flex-wrap: wrap;
+  }
+  .preset-btn {
+    padding: 6px 14px;
+    border-radius: 10px;
+    border: 1px solid var(--glass-border);
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 12px;
+    font-weight: 500;
+    font-family: inherit;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .preset-btn:hover { color: var(--text-secondary); border-color: rgba(255,255,255,0.15); }
+
+  .pref-input {
+    width: 100%;
+    padding: 14px 16px;
+    border: 1px solid var(--glass-border);
+    border-radius: var(--small-radius);
+    font-family: inherit;
+    font-size: 15px;
+    color: var(--text);
+    background: rgba(0,0,0,0.2);
+    resize: none;
+    outline: none;
+    height: 68px;
+    line-height: 1.5;
+    transition: all 0.2s;
+  }
+  .pref-input:focus { border-color: var(--purple); background: rgba(0,0,0,0.3); box-shadow: 0 0 0 3px var(--purple-glow); }
+  .pref-input::placeholder { color: var(--text-muted); }
+
+  .filters-row {
+    display: flex; gap: 16px; margin: 16px 0 4px; flex-wrap: wrap;
+  }
+  .filter-item {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 13px; color: var(--text-secondary);
+    cursor: pointer; user-select: none;
+  }
+  .filter-item input { accent-color: var(--purple); width: 15px; height: 15px; cursor: pointer; }
+
+  .btn-submit {
+    width: 100%;
+    padding: 14px;
+    border-radius: var(--small-radius);
+    border: none;
+    background: linear-gradient(135deg, var(--purple-deep), var(--purple));
+    color: white;
+    font-size: 15px;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    margin-top: 16px;
+    transition: all 0.25s;
+    box-shadow: 0 4px 20px rgba(79,70,229,0.3);
+    position: relative;
+    overflow: hidden;
+  }
+  .btn-submit:hover { box-shadow: 0 6px 28px rgba(79,70,229,0.45); transform: translateY(-1px); }
+  .btn-submit:active { transform: translateY(0) scale(0.99); }
+  .loading-note {
+    text-align: center;
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: 10px;
+  }
+
+  /* QUALITY SECTION */
+  .quality-section {
+    display: flex; align-items: center; gap: 18px;
+  }
+  .quality-ring {
+    width: 68px; height: 68px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 24px; font-weight: 700;
+    flex-shrink: 0;
+    position: relative;
+  }
+  .quality-ring::before {
+    content: '';
+    position: absolute;
+    inset: -3px;
+    border-radius: 50%;
+    padding: 3px;
+    background: conic-gradient(var(--green) calc(var(--score) * 1%), var(--glass-border) 0);
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+  }
+  .ring-high { color: var(--green); }
+  .ring-mid { color: var(--amber); }
+  .ring-low { color: var(--red); }
+  .quality-info h3 { font-size: 14px; font-weight: 600; }
+  .quality-info p { font-size: 12px; color: var(--text-muted); margin-top: 3px; }
+  .quality-stat {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 8px;
+    font-size: 11px;
+    font-weight: 600;
+    margin-top: 6px;
+  }
+  .stat-filtered { background: var(--red-bg); color: var(--red); }
+
+  /* TABS */
+  .feed-tabs {
+    display: flex; gap: 4px;
+    background: var(--glass);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--small-radius);
+    padding: 4px;
+    margin-bottom: 16px;
+  }
+  .tab-btn {
+    flex: 1; padding: 10px;
+    border-radius: 11px; border: none;
+    font-size: 13px; font-weight: 600;
+    font-family: inherit; cursor: pointer;
+    transition: all 0.25s;
+    text-align: center;
+    background: transparent;
+    color: var(--text-muted);
+  }
+  .tab-btn.active {
+    background: linear-gradient(135deg, var(--purple-deep), var(--purple));
+    color: white;
+    box-shadow: 0 2px 12px rgba(79,70,229,0.25);
+  }
+  .tab-btn:not(.active):hover { color: var(--text-secondary); }
+
+  .feed { display: block; }
+  .feed.hidden { display: none; }
+
+  /* POST CARDS */
+  .post-card {
+    background: var(--glass);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--card-radius);
+    padding: 20px;
+    margin-bottom: 10px;
+    transition: all 0.25s;
+  }
+  .post-card:hover { background: var(--surface-hover); border-color: rgba(255,255,255,0.12); }
+  .post-card.hidden-post { opacity: 0.2; }
+  .post-card.flagged { border-left: 3px solid var(--red); }
+
+  .post-top {
+    display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px;
+  }
+  .post-author { font-weight: 600; font-size: 14px; }
+  .post-handle { font-size: 12px; color: var(--text-muted); margin-top: 1px; }
+  .relevance-badge {
+    padding: 4px 12px; border-radius: 10px;
+    font-size: 13px; font-weight: 700;
+    flex-shrink: 0;
+  }
+  .rel-high { background: var(--green-bg); color: var(--green); }
+  .rel-mid { background: var(--amber-bg); color: var(--amber); }
+  .rel-low { background: var(--red-bg); color: var(--red); }
+
+  .post-tags { display: flex; gap: 5px; margin-bottom: 10px; }
+  .tag {
+    font-size: 10px; padding: 3px 9px; border-radius: 6px;
+    font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px;
+  }
+  .tag-toxic { background: var(--red-bg); color: var(--red); }
+  .tag-sponsored { background: var(--amber-bg); color: var(--amber); }
+  .tag-ragebait { background: rgba(249,115,22,0.1); color: #FB923C; }
+  .tag-clean { background: var(--purple-glow); color: var(--purple-bright); }
+
+  .post-text {
+    font-size: 14px; color: var(--text);
+    line-height: 1.6; margin-bottom: 10px;
+    opacity: 0.85;
+  }
+  .post-reason {
+    font-size: 12px;
+    color: var(--purple-bright);
+    background: var(--purple-glow);
+    padding: 10px 14px;
+    border-radius: 12px;
+    margin-bottom: 12px;
+    line-height: 1.45;
+    border-left: 2px solid var(--purple);
+  }
+  .post-footer {
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .post-meta {
+    font-size: 12px; color: var(--text-muted);
+    display: flex; gap: 14px;
+  }
+  .view-original {
+    font-size: 12px; color: var(--purple-bright);
+    text-decoration: none; font-weight: 500;
+    opacity: 0.7; transition: opacity 0.2s;
+  }
+  .view-original:hover { opacity: 1; }
+
+  /* EMPTY STATE */
+  .empty-state {
+    text-align: center; padding: 80px 20px;
+  }
+  .empty-glyph {
+    width: 64px; height: 64px; border-radius: 20px;
+    background: var(--purple-glow); border: 1px solid var(--glass-border);
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 20px; font-size: 28px;
+  }
+  .empty-state h3 { font-size: 18px; font-weight: 600; margin-bottom: 6px; }
+  .empty-state p { font-size: 14px; color: var(--text-muted); }
+
+  /* TIMER OVERLAY */
+  .timer-overlay {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(15,11,26,0.92);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    z-index: 200;
+    align-items: center; justify-content: center;
+    flex-direction: column;
+    gap: 16px;
+    text-align: center;
+    padding: 40px;
+  }
+  .timer-overlay.show { display: flex; }
+  .timer-overlay h2 { font-size: 28px; font-weight: 700; }
+  .timer-overlay p { font-size: 15px; color: var(--text-secondary); max-width: 360px; line-height: 1.6; }
+  .timer-extend-btn {
+    padding: 12px 32px; border-radius: var(--small-radius);
+    background: var(--glass); border: 1px solid var(--glass-border);
+    color: var(--text); font-size: 14px; font-weight: 500;
+    font-family: inherit; cursor: pointer; transition: all 0.2s;
+    margin-top: 8px;
+  }
+  .timer-extend-btn:hover { background: var(--surface-hover); }
+  .timer-close-btn {
+    padding: 12px 32px; border-radius: var(--small-radius);
+    background: linear-gradient(135deg, var(--purple-deep), var(--purple));
+    border: none;
+    color: white; font-size: 14px; font-weight: 600;
+    font-family: inherit; cursor: pointer;
+    box-shadow: 0 4px 16px rgba(79,70,229,0.3);
+    transition: all 0.2s;
+  }
+  .timer-close-btn:hover { transform: translateY(-1px); }
+
+  /* TIMER MODAL */
+  .timer-modal {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(15,11,26,0.85);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    z-index: 200;
+    align-items: center; justify-content: center;
+  }
+  .timer-modal.show { display: flex; }
+  .timer-modal-content {
+    background: var(--glass);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--card-radius);
+    padding: 32px;
+    text-align: center;
+    max-width: 340px;
+    width: 100%;
+  }
+  .timer-modal-content h3 { font-size: 18px; margin-bottom: 6px; }
+  .timer-modal-content p { font-size: 13px; color: var(--text-secondary); margin-bottom: 20px; }
+  .timer-options { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin-bottom: 16px; }
+  .timer-opt {
+    padding: 10px 20px; border-radius: 12px;
+    background: var(--surface); border: 1px solid var(--glass-border);
+    color: var(--text-secondary); font-size: 14px; font-weight: 500;
+    font-family: inherit; cursor: pointer; transition: all 0.2s;
+  }
+  .timer-opt:hover { border-color: var(--purple); color: var(--purple-bright); }
+  .timer-opt.selected { background: var(--purple-glow); border-color: var(--purple); color: var(--purple-bright); }
+  .timer-cancel {
+    background: none; border: none; color: var(--text-muted);
+    font-size: 13px; cursor: pointer; font-family: inherit;
+  }
+
+  @media (max-width: 600px) {
+    .container { padding: 16px 12px 80px; }
+    .glass-card { padding: 18px; }
+    .mood-row { gap: 6px; }
+    .mood-btn { padding: 7px 12px; font-size: 12px; }
+    .preset-btn { font-size: 11px; padding: 5px 10px; }
+    .post-card { padding: 16px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<div class="nav">
+  <div class="nav-left">
+    <span class="nav-logo">Clarity</span>
+    <span class="nav-dot"></span>
+  </div>
+  <div class="timer-display">
+    <span class="timer-value" id="timerValue">No limit</span>
+    <button class="timer-set-btn" onclick="openTimerModal()">Set timer</button>
+  </div>
+</div>
+
+<!-- TIMER MODAL -->
+<div class="timer-modal" id="timerModal">
+  <div class="timer-modal-content">
+    <h3>Session Timer</h3>
+    <p>Set a browsing limit. Clarity will gently remind you when time is up.</p>
+    <div class="timer-options">
+      <button class="timer-opt" onclick="selectTimer(5)">5 min</button>
+      <button class="timer-opt" onclick="selectTimer(15)">15 min</button>
+      <button class="timer-opt" onclick="selectTimer(30)">30 min</button>
+      <button class="timer-opt" onclick="selectTimer(60)">1 hour</button>
+    </div>
+    <button class="timer-cancel" onclick="closeTimerModal()">No limit</button>
+  </div>
+</div>
+
+<!-- TIMER OVERLAY -->
+<div class="timer-overlay" id="timerOverlay">
+  <h2>Time to take a break</h2>
+  <p>You've been browsing for a while. Clarity is here to help you stay intentional with your time.</p>
+  <button class="timer-close-btn" onclick="closeOverlay()">Close Clarity</button>
+  <button class="timer-extend-btn" onclick="extendTimer(5)">Just 5 more minutes</button>
+</div>
+
+<div class="container">
+
+  <!-- INPUT -->
+  <form method="POST" class="glass-card input-section">
+    <h2>What are you in the mood for?</h2>
+    <p class="subtitle">Pick a mood, choose a preset, or just describe it yourself.</p>
+
+    <div class="mood-row">
+      <button type="button" class="mood-btn {% if mood == 'relax' %}selected{% endif %}" onclick="selectMood(this, 'relax')">
+        <span class="mood-icon">🌿</span> Relax
+      </button>
+      <button type="button" class="mood-btn {% if mood == 'learn' %}selected{% endif %}" onclick="selectMood(this, 'learn')">
+        <span class="mood-icon">🧠</span> Learn
+      </button>
+      <button type="button" class="mood-btn {% if mood == 'laugh' %}selected{% endif %}" onclick="selectMood(this, 'laugh')">
+        <span class="mood-icon">😄</span> Laugh
+      </button>
+      <button type="button" class="mood-btn {% if mood == 'explore' %}selected{% endif %}" onclick="selectMood(this, 'explore')">
+        <span class="mood-icon">🔮</span> Explore
+      </button>
+    </div>
+
+    <div class="preset-row">
+      <button type="button" class="preset-btn" onclick="applyPreset('animals')">Animals</button>
+      <button type="button" class="preset-btn" onclick="applyPreset('foodie')">Foodie</button>
+      <button type="button" class="preset-btn" onclick="applyPreset('science')">Science</button>
+      <button type="button" class="preset-btn" onclick="applyPreset('creative')">Creative</button>
+      <button type="button" class="preset-btn" onclick="applyPreset('fitness')">Fitness</button>
+    </div>
+
+    <textarea class="pref-input" name="preference" id="prefInput" placeholder="e.g. I love cute animals, baking tips, and space science. Nothing depressing or political.">{{ preference }}</textarea>
+    <input type="hidden" name="mood" id="moodInput" value="{{ mood }}">
+
+    <div class="filters-row">
+      <label class="filter-item">
+        <input type="checkbox" name="filter_toxic" {{ "checked" if filters.toxic }}>
+        Hide toxic
+      </label>
+      <label class="filter-item">
+        <input type="checkbox" name="filter_sponsored" {{ "checked" if filters.sponsored }}>
+        Hide ads
+      </label>
+      <label class="filter-item">
+        <input type="checkbox" name="filter_ragebait" {{ "checked" if filters.ragebait }}>
+        Hide rage-bait
+      </label>
+    </div>
+
+    <button type="submit" class="btn-submit">Re-rank my feed</button>
+    <p class="loading-note">Clarity reads and scores every post — takes a few seconds</p>
+  </form>
+
+  {% if scored_posts %}
+
+  <!-- QUALITY -->
+  <div class="glass-card quality-section" style="--score: {{ quality_score }}">
+    <div class="quality-ring {{ 'ring-high' if quality_score > 60 }}{{ 'ring-mid' if quality_score > 30 and quality_score <= 60 }}{{ 'ring-low' if quality_score <= 30 }}">
+      {{ quality_score }}
+    </div>
+    <div class="quality-info">
+      <h3>Feed Quality Score</h3>
+      <p>How well your feed matches what you asked for</p>
+      {% if filtered_count > 0 %}
+      <span class="quality-stat stat-filtered">{{ filtered_count }} posts filtered out</span>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- TABS -->
+  <div class="feed-tabs">
+    <button class="tab-btn active" onclick="showTab('reranked')">Your Feed</button>
+    <button class="tab-btn" onclick="showTab('original')">Original Order</button>
+  </div>
+
+  <!-- RERANKED -->
+  <div id="reranked" class="feed">
+    {% for post in scored_posts %}
+    <div class="post-card {{ 'hidden-post' if post.hidden }} {{ 'flagged' if post.is_toxic or post.is_ragebait }}">
+      <div class="post-top">
+        <div>
+          <div class="post-author">{{ post.author }}</div>
+          <div class="post-handle">{{ post.handle }}</div>
+        </div>
+        <span class="relevance-badge {{ 'rel-high' if post.relevance > 70 }}{{ 'rel-mid' if post.relevance > 30 and post.relevance <= 70 }}{{ 'rel-low' if post.relevance <= 30 }}">{{ post.relevance }}%</span>
+      </div>
+      <div class="post-tags">
+        {% if post.is_toxic %}<span class="tag tag-toxic">Toxic</span>{% endif %}
+        {% if post.is_sponsored %}<span class="tag tag-sponsored">Sponsored</span>{% endif %}
+        {% if post.is_ragebait %}<span class="tag tag-ragebait">Rage-bait</span>{% endif %}
+        {% if not post.is_toxic and not post.is_sponsored and not post.is_ragebait %}<span class="tag tag-clean">Clean</span>{% endif %}
+      </div>
+      <div class="post-text">{{ post.text[:300] }}</div>
+      {% if post.reason and 'Scoring failed' not in post.reason and 'Not scored' not in post.reason %}
+      <div class="post-reason">{{ post.reason }}</div>
+      {% endif %}
+      <div class="post-footer">
+        <div class="post-meta">
+          <span>{{ post.likes }} likes</span>
+          <span>{{ post.comments }} comments</span>
+        </div>
+        {% if post.url %}
+        <a href="{{ post.url }}" target="_blank" class="view-original">View original →</a>
+        {% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+  <!-- ORIGINAL -->
+  <div id="original" class="feed hidden">
+    {% for post in original_posts %}
+    <div class="post-card">
+      <div class="post-top">
+        <div>
+          <div class="post-author">{{ post.author }}</div>
+          <div class="post-handle">{{ post.handle }}</div>
+        </div>
+      </div>
+      <div class="post-text">{{ post.text[:300] }}</div>
+      <div class="post-footer">
+        <div class="post-meta">
+          <span>{{ post.likes }} likes</span>
+          <span>{{ post.comments }} comments</span>
+        </div>
+        {% if post.url %}
+        <a href="{{ post.url }}" target="_blank" class="view-original">View original →</a>
+        {% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+  {% else %}
+
+  <div class="empty-state">
+    <div class="empty-glyph">◎</div>
+    <h3>Your feed is waiting</h3>
+    <p>Tell Clarity what you care about and it will build a feed just for you.</p>
+  </div>
+
+  {% endif %}
+
+</div>
+
+<script>
+const PRESETS = {
+  animals: "I love cute animals, pets, wildlife, and heartwarming animal stories",
+  foodie: "I want recipes, baking tips, cooking techniques, and food culture",
+  science: "I want science breakthroughs, space, technology, and research news",
+  creative: "I want art, design, photography, DIY projects, and creative inspiration",
+  fitness: "I want workout tips, healthy living, nutrition advice, and wellness content"
+};
+
+function selectMood(btn, mood) {
+  document.querySelectorAll('.mood-btn').forEach(b => b.classList.remove('selected'));
+  btn.classList.add('selected');
+  document.getElementById('moodInput').value = mood;
+}
+
+function applyPreset(key) {
+  document.getElementById('prefInput').value = PRESETS[key];
+}
+
+function showTab(tab) {
+  document.getElementById('reranked').classList.toggle('hidden', tab !== 'reranked');
+  document.getElementById('original').classList.toggle('hidden', tab !== 'original');
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.textContent.includes(tab === 'reranked' ? 'Your' : 'Original'));
+  });
+}
+
+// TIMER
+let timerInterval = null;
+let timerSeconds = 0;
+
+function openTimerModal() { document.getElementById('timerModal').classList.add('show'); }
+function closeTimerModal() { document.getElementById('timerModal').classList.remove('show'); }
+
+function selectTimer(minutes) {
+  timerSeconds = minutes * 60;
+  closeTimerModal();
+  startTimer();
+}
+
+function startTimer() {
+  if (timerInterval) clearInterval(timerInterval);
+  updateTimerDisplay();
+  timerInterval = setInterval(() => {
+    timerSeconds--;
+    updateTimerDisplay();
+    if (timerSeconds <= 0) {
+      clearInterval(timerInterval);
+      document.getElementById('timerOverlay').classList.add('show');
+    }
+  }, 1000);
+}
+
+function updateTimerDisplay() {
+  const m = Math.floor(timerSeconds / 60);
+  const s = timerSeconds % 60;
+  document.getElementById('timerValue').textContent = m + ':' + String(s).padStart(2, '0');
+}
+
+function closeOverlay() {
+  document.getElementById('timerOverlay').classList.remove('show');
+  document.getElementById('timerValue').textContent = 'Done';
+}
+
+function extendTimer(minutes) {
+  timerSeconds = minutes * 60;
+  document.getElementById('timerOverlay').classList.remove('show');
+  startTimer();
+}
+</script>
+
+</body>
+</html>
