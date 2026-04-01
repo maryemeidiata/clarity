@@ -1,5 +1,4 @@
 import sqlite3
-import json
 
 DB_PATH = "clarity_users.db"
 

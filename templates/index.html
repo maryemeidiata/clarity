@@ -615,7 +615,7 @@
       {% if not post.hidden %}
       <div class="post-signals"
            data-post-id="{{ post.id }}"
-           data-post-text="{{ post.text[:60] | replace('"', '') | replace("'", '') }}">
+           data-post-text="{{ post.text[:60] | e }}">
         <button class="signal-btn" onclick="sendSignal(this.parentElement, 'thumbs_up', 1.0, this)">
           👍 Good
         </button>

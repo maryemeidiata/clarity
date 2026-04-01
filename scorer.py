@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 load_dotenv()
 client = cohere.ClientV2(os.getenv("COHERE_API_KEY"))
 
-def score_posts(preference, posts):
+def score_posts(preference, posts, behaviour_context=""):
     if not posts:
         return []
     

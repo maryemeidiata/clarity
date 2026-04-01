@@ -45,7 +45,7 @@ Example: MachineLearning, productivity, learnprogramming"""
         return [n for n in candidates if validate_subreddit(n)]
     except Exception as e:
         print(f"[app] extract_subreddits failed: {e}")
-        return ["technology"]  # safe fallback
+        return []  # safe fallback
 
 @app.route("/", methods=["GET", "POST"])
 def home():
@@ -118,6 +118,21 @@ def home():
         moods=MOODS,
         presets=PRESETS
     )
+
+@app.route("/interact", methods=["POST"])
+def interact():
+    from flask import jsonify
+    data = request.get_json(silent=True)
+    if not data:
+        return jsonify({"status": "error"}), 400
+    log_interaction(
+        session_id=data.get("session_id", "anonymous"),
+        post_id=data.get("post_id", ""),
+        post_text=data.get("post_text", ""),
+        signal=data.get("signal", ""),
+        weight=float(data.get("weight", 0))
+    )
+    return jsonify({"status": "ok"})
 
 if __name__ == "__main__":
     app.run(debug=True)
