@@ -71,13 +71,13 @@ Score all {len(posts)} posts:"""
 
 
 if __name__ == "__main__":
-    from feed import get_posts
-    
-    posts = get_posts("baking recipes", limit=5)
+    from feed import get_posts_from_subreddit
+
+    posts = get_posts_from_subreddit("food", limit=5)
     print(f"Pulled {len(posts)} posts. Scoring in one batch...\n")
-    
-    scored = score_posts("I love cute animals and baking. No sad content.", posts)
-    
+
+    scored = score_posts("I love baking and food culture. No sad content.", posts, "")
+
     for post in scored:
         print(f"[{post['relevance']}%] {post['author']}: {post['text'][:80]}")
         print(f"  → {post['reason']}")
