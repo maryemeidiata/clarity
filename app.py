@@ -1,14 +1,16 @@
 from flask import Flask, render_template, request
-from feed import get_posts
+from feed import get_posts_from_subreddit, validate_subreddit
 from scorer import score_posts
 import cohere
 import os
 from dotenv import load_dotenv
+from db import init_db, log_interaction, get_interaction_context
 
 load_dotenv()
 co = cohere.ClientV2(os.getenv("COHERE_API_KEY"))
 
 app = Flask(__name__)
+init_db()
 
 MOODS = {
     "relax": "Prioritize calming, wholesome, feel-good content. Avoid anything stressful, political, or negative.",
@@ -25,24 +27,25 @@ PRESETS = {
     "fitness": "I want workout tips, healthy living, nutrition advice, and wellness content"
 }
 
-def extract_search_queries(preference):
+def extract_subreddits(preference: str) -> list[str]:
     prompt = f"""A user described what they want to see in their social media feed:
 "{preference}"
 
-Extract 2-3 short search queries (1-3 words each) that would find relevant content on Reddit.
-
-Reply with ONLY the queries separated by commas. Nothing else.
-Example: cute cats, baking recipes, science news"""
+Return 2-3 relevant subreddit names (just the name, no r/ prefix).
+Reply ONLY with comma-separated names. Nothing else.
+Example: MachineLearning, productivity, learnprogramming"""
 
     try:
         response = co.chat(
             model="command-a-03-2025",
             messages=[{"role": "user", "content": prompt}]
         )
-        queries = response.message.content[0].text.strip().split(",")
-        return [q.strip() for q in queries if q.strip()]
-    except:
-        return [preference[:30]]
+        raw = response.message.content[0].text.strip().split(",")
+        candidates = [n.strip() for n in raw if n.strip()]
+        return [n for n in candidates if validate_subreddit(n)]
+    except Exception as e:
+        print(f"[app] extract_subreddits failed: {e}")
+        return ["technology"]  # safe fallback
 
 @app.route("/", methods=["GET", "POST"])
 def home():
@@ -65,11 +68,12 @@ def home():
         if mood and mood in MOODS:
             full_preference += ". " + MOODS[mood]
         
-        queries = extract_search_queries(full_preference)
-        
+        behaviour_context = get_interaction_context()
+        subreddits = extract_subreddits(full_preference)
+
         all_posts = []
-        for query in queries:
-            posts = get_posts(query, limit=8)
+        for subreddit in subreddits:
+            posts = get_posts_from_subreddit(subreddit, limit=15)
             all_posts.extend(posts)
         
         seen = set()
@@ -81,7 +85,7 @@ def home():
                 unique_posts.append(p)
         
         original_posts = [p.copy() for p in unique_posts]
-        scored_posts = score_posts(full_preference, unique_posts)
+        scored_posts = score_posts(full_preference, unique_posts, behaviour_context)
         
         for p in scored_posts:
             if filters["toxic"] and p.get("is_toxic"):

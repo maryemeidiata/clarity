@@ -14,13 +14,18 @@ def score_posts(preference, posts):
     for i, post in enumerate(posts):
         posts_text += f"\n[POST {i}] by {post['author']}: {post['text'][:200]}\n"
     
-    prompt = f"""A user wants their social media feed to show: "{preference}"
+    behaviour_line = f"\nUser behaviour history (secondary signal, weight 0.2): {behaviour_context}" if behaviour_context else ""
+
+    prompt = f"""A user wants their social media feed to show: "{preference}"{behaviour_line}
+
+The stated preference is the PRIMARY ranking signal (weight 0.8).
+Behaviour history, if present, is secondary — use it to refine, not override.
 
 Here are the posts to evaluate:
 {posts_text}
 
 Score each post. Reply with ONLY a JSON array. No markdown, no backticks, no extra text.
-Each item must have: post_index, relevance (0-100), is_toxic (true/false), is_sponsored (true/false), is_ragebait (true/false), reason (one short sentence).
+Each item must have: post_index, relevance (0-100), is_toxic (true/false), is_sponsored (true/false), is_ragebait (true/false), reason (one short sentence, max 12 words).
 
 Example format:
 [{{"post_index": 0, "relevance": 85, "is_toxic": false, "is_sponsored": false, "is_ragebait": false, "reason": "Matches interest in animals"}}]
@@ -46,13 +51,13 @@ Score all {len(posts)} posts:"""
                 posts[idx]["is_ragebait"] = result.get("is_ragebait", False)
                 posts[idx]["reason"] = result.get("reason", "")
     except Exception as e:
-        print(f"Batch scoring failed: {e}")
+        print(f"[scorer] Batch scoring failed: {e}")
         for post in posts:
-            post["relevance"] = 50
-            post["is_toxic"] = False
-            post["is_sponsored"] = False
-            post["is_ragebait"] = False
-            post["reason"] = "Scoring unavailable"
+            post.setdefault("relevance", 50)
+            post.setdefault("is_toxic", False)
+            post.setdefault("is_sponsored", False)
+            post.setdefault("is_ragebait", False)
+            post.setdefault("reason", "Could not score this post.")
     
     for post in posts:
         if "relevance" not in post:

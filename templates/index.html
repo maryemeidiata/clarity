@@ -451,6 +451,24 @@
     .preset-btn { font-size: 11px; padding: 5px 10px; }
     .post-card { padding: 16px; }
   }
+  .post-signals {
+    display: flex;
+    gap: 8px;
+    margin-top: 10px;
+  }
+  .signal-btn {
+    background: none;
+    border: 1px solid var(--glass-border);
+    border-radius: 8px;
+    padding: 4px 12px;
+    cursor: pointer;
+    font-size: 13px;
+    color: var(--text-secondary);
+    font-family: inherit;
+    transition: opacity 0.2s;
+  }
+  .signal-btn:hover { background: var(--surface-hover); color: var(--text); }
+  .signal-btn.sent { opacity: 0.25; pointer-events: none; }
 </style>
 </head>
 <body>
@@ -594,6 +612,18 @@
         <a href="{{ post.url }}" target="_blank" class="view-original">View original →</a>
         {% endif %}
       </div>
+      {% if not post.hidden %}
+      <div class="post-signals"
+           data-post-id="{{ post.id }}"
+           data-post-text="{{ post.text[:60] | replace('"', '') | replace("'", '') }}">
+        <button class="signal-btn" onclick="sendSignal(this.parentElement, 'thumbs_up', 1.0, this)">
+          👍 Good
+        </button>
+        <button class="signal-btn" onclick="sendSignal(this.parentElement, 'thumbs_down', -1.0, this)">
+          👎 Not for me
+        </button>
+      </div>
+      {% endif %}
     </div>
     {% endfor %}
   </div>
@@ -702,6 +732,37 @@ function extendTimer(minutes) {
   timerSeconds = minutes * 60;
   document.getElementById('timerOverlay').classList.remove('show');
   startTimer();
+}
+
+function getOrCreateSession() {
+  let sid = document.cookie.match(/clarity_session=([^;]+)/)?.[1];
+  if (!sid) {
+    sid = 'sess_' + Math.random().toString(36).substr(2, 9);
+    document.cookie = 'clarity_session=' + sid + '; path=/; max-age=2592000';
+  }
+  return sid;
+}
+
+async function sendSignal(container, signal, weight, btn) {
+  const postId = container.dataset.postId;
+  const postText = container.dataset.postText;
+  btn.classList.add('sent');
+  try {
+    await fetch('/interact', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        session_id: getOrCreateSession(),
+        post_id: postId,
+        post_text: postText,
+        signal: signal,
+        weight: weight
+      })
+    });
+  } catch(e) {
+    console.error('[clarity] signal failed:', e);
+    btn.classList.remove('sent');
+  }
 }
 </script>
 
