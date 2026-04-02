@@ -19,6 +19,17 @@ def get_posts_from_subreddit(subreddit: str, limit: int = 25) -> list[dict]:
         text = p.get("title", "") + ". " + p.get("selftext", "")[:200]
         if not text.strip():
             continue
+        # Extract image if available
+        image_url = None
+        post_hint = p.get("post_hint", "")
+        if post_hint == "image":
+            image_url = p.get("url", None)
+        elif p.get("preview"):
+            try:
+                image_url = p["preview"]["images"][0]["source"]["url"].replace("&amp;", "&")
+            except (KeyError, IndexError):
+                image_url = None
+
         posts.append({
             "id": p["id"],
             "author": p.get("author", "unknown"),
@@ -29,6 +40,7 @@ def get_posts_from_subreddit(subreddit: str, limit: int = 25) -> list[dict]:
             "time": p.get("created_utc", 0),
             "url": "https://reddit.com" + p.get("permalink", ""),
             "source": "reddit",
+            "image_url": image_url,
         })
     return posts
 

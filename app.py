@@ -5,6 +5,7 @@ import cohere
 import os
 from dotenv import load_dotenv
 from db import init_db, log_interaction, get_interaction_context
+import json
 
 load_dotenv()
 co = cohere.ClientV2(os.getenv("COHERE_API_KEY"))
@@ -27,6 +28,39 @@ PRESETS = {
     "fitness": "I want workout tips, healthy living, nutrition advice, and wellness content"
 }
 
+PERSONAS = {
+    "learner": {
+        "label": "The Learner",
+        "emoji": "🧠",
+        "description": "Deep dives, research, explainers",
+        "preference": "I want educational, in-depth content. Long reads, research findings, how-things-work explainers. No clickbait or shallow takes."
+    },
+    "optimist": {
+        "label": "The Optimist",
+        "emoji": "🌱",
+        "description": "Progress, kindness, good news",
+        "preference": "I want positive, uplifting content. Stories of progress, kindness, creativity, and human achievement. Nothing toxic or depressing."
+    },
+    "analyst": {
+        "label": "The Analyst",
+        "emoji": "📊",
+        "description": "Data, strategy, critical thinking",
+        "preference": "I want data-driven, evidence-based content. Strategic analysis, systems thinking, well-reasoned arguments. Skip the hot takes."
+    },
+    "explorer": {
+        "label": "The Explorer",
+        "emoji": "🔭",
+        "description": "Niche, surprising, diverse",
+        "preference": "I want surprising, niche, and diverse content. Things I wouldn't normally encounter. Broaden my perspective."
+    },
+    "minimalist": {
+        "label": "The Minimalist",
+        "emoji": "⚡",
+        "description": "Signal-dense, no noise",
+        "preference": "I want concise, high-signal content only. No filler, no drama, no noise. Maximum substance per word."
+    },
+}
+
 def extract_subreddits(preference: str) -> list[str]:
     prompt = f"""A user described what they want to see in their social media feed:
 "{preference}"
@@ -47,8 +81,51 @@ Example: MachineLearning, productivity, learnprogramming"""
         print(f"[app] extract_subreddits failed: {e}")
         return []  # safe fallback
 
+def generate_transparency_report(preference: str, scored_posts: list, behaviour_context: str) -> dict:
+    if not scored_posts:
+        return {}
+
+    visible = [p for p in scored_posts if not p.get("hidden")]
+    hidden = [p for p in scored_posts if p.get("hidden")]
+    avg_score = round(sum(p.get("relevance", 0) for p in visible) / len(visible)) if visible else 0
+    top_posts = sorted(visible, key=lambda x: x.get("relevance", 0), reverse=True)[:3]
+    top_handles = list(dict.fromkeys(p["handle"] for p in top_posts))
+
+    prompt = f"""A user set this preference for their social media feed:
+"{preference}"
+
+The algorithm scored {len(scored_posts)} posts. Top scores went to posts from: {', '.join(top_handles)}.
+Average relevance of visible posts: {avg_score}/100.
+{len(hidden)} posts were filtered out as toxic, sponsored, or rage-bait.
+{f'User behaviour context: {behaviour_context}' if behaviour_context else 'No behaviour history yet.'}
+
+Write a transparency report for the user in 3 short sections:
+1. "How I understood your preference" - one sentence
+2. "What I prioritised" - two to three bullet points, each max 10 words
+3. "What I filtered out" - one sentence
+
+Reply in JSON with keys: understood, prioritised (array of strings), filtered_out.
+No markdown, no backticks."""
+
+    try:
+        response = co.chat(
+            model="command-a-03-2025",
+            messages=[{"role": "user", "content": prompt}]
+        )
+        raw = response.message.content[0].text.strip()
+        raw = raw.replace("```json", "").replace("```", "").strip()
+        return json.loads(raw)
+    except Exception as e:
+        print(f"[transparency] Failed: {e}")
+        return {
+            "understood": f"You want: {preference[:80]}",
+            "prioritised": ["Posts matching your stated topics", "Clean, non-toxic content"],
+            "filtered_out": f"{len(hidden)} posts removed by your filters."
+        }
+
 @app.route("/", methods=["GET", "POST"])
 def home():
+    transparency = {}
     preference = ""
     scored_posts = []
     original_posts = []
@@ -86,7 +163,8 @@ def home():
         
         original_posts = [p.copy() for p in unique_posts]
         scored_posts = score_posts(full_preference, unique_posts, behaviour_context)
-        
+        transparency = generate_transparency_report(full_preference, scored_posts, behaviour_context)
+
         for p in scored_posts:
             if filters["toxic"] and p.get("is_toxic"):
                 p["hidden"] = True
@@ -116,7 +194,9 @@ def home():
         mood=mood,
         filtered_count=filtered_count,
         moods=MOODS,
-        presets=PRESETS
+        presets=PRESETS,
+        personas=PERSONAS,
+        transparency=transparency,
     )
 
 @app.route("/interact", methods=["POST"])
@@ -133,6 +213,36 @@ def interact():
         weight=float(data.get("weight", 0))
     )
     return jsonify({"status": "ok"})
+
+@app.route("/refine", methods=["POST"])
+def refine():
+    from flask import jsonify
+    data = request.get_json(silent=True)
+    if not data:
+        return jsonify({"error": "No data"}), 400
+
+    current_preference = data.get("current_preference", "")
+    user_message = data.get("message", "")
+
+    prompt = f"""A user has this current feed preference:
+"{current_preference}"
+
+They want to change it. Their feedback:
+"{user_message}"
+
+Rewrite the preference to incorporate their feedback. Keep what they liked, adjust what they didn't.
+Reply with ONLY the new preference string. No explanation, no quotes, no preamble."""
+
+    try:
+        response = co.chat(
+            model="command-a-03-2025",
+            messages=[{"role": "user", "content": prompt}]
+        )
+        new_preference = response.message.content[0].text.strip()
+        return jsonify({"new_preference": new_preference})
+    except Exception as e:
+        print(f"[refine] Failed: {e}")
+        return jsonify({"error": str(e)}), 500
 
 if __name__ == "__main__":
     app.run(debug=True)
