@@ -9,14 +9,15 @@ client = cohere.ClientV2(os.getenv("COHERE_API_KEY"))
 def score_posts(preference, posts, behaviour_context=""):
     if not posts:
         return []
-    
+
     posts_text = ""
     for i, post in enumerate(posts):
-        posts_text += f"\n[POST {i}] by {post['author']}: {post['text'][:200]}\n"
-    
+        posts_text += f"\n[POST {i}] by {post['author']} in {post['handle']}: {post['text'][:250]}\n"
+
     behaviour_line = f"\nUser behaviour history (secondary signal, weight 0.2): {behaviour_context}" if behaviour_context else ""
 
-    prompt = f"""A user wants their social media feed to show: "{preference}"{behaviour_line}
+    prompt = f"""You are a social media feed curator. A user wants their feed to show:
+"{preference}"{behaviour_line}
 
 The stated preference is the PRIMARY ranking signal (weight 0.8).
 Behaviour history, if present, is secondary — use it to refine, not override.
@@ -27,9 +28,6 @@ Here are the posts to evaluate:
 Score each post. Reply with ONLY a JSON array. No markdown, no backticks, no extra text.
 Each item must have: post_index, relevance (0-100), is_toxic (true/false), is_sponsored (true/false), is_ragebait (true/false), reason (one short sentence, max 12 words).
 
-Example format:
-[{{"post_index": 0, "relevance": 85, "is_toxic": false, "is_sponsored": false, "is_ragebait": false, "reason": "Matches interest in animals"}}]
-
 Score all {len(posts)} posts:"""
 
     try:
@@ -37,11 +35,11 @@ Score all {len(posts)} posts:"""
             model="command-a-03-2025",
             messages=[{"role": "user", "content": prompt}]
         )
-        
+
         raw = response.message.content[0].text.strip()
         raw = raw.replace("```json", "").replace("```", "").strip()
         results = json.loads(raw)
-        
+
         for result in results:
             idx = result.get("post_index", -1)
             if 0 <= idx < len(posts):
@@ -58,7 +56,7 @@ Score all {len(posts)} posts:"""
             post.setdefault("is_sponsored", False)
             post.setdefault("is_ragebait", False)
             post.setdefault("reason", "Could not score this post.")
-    
+
     for post in posts:
         if "relevance" not in post:
             post["relevance"] = 50
@@ -66,19 +64,45 @@ Score all {len(posts)} posts:"""
             post["is_sponsored"] = False
             post["is_ragebait"] = False
             post["reason"] = "Not scored"
-    
+
     return posts
+
+
+def generate_filter_chips(preference: str) -> list[str]:
+    prompt = f"""A user wants to browse social media about: "{preference}"
+
+Suggest 5-6 short filter labels (2-3 words each) that would help them narrow down the content.
+These should be sub-categories or angles within their interest.
+
+Reply with ONLY a JSON array of strings. No markdown.
+Example: ["Funny moments", "News updates", "Deep analysis", "Fan theories", "Behind the scenes"]"""
+
+    try:
+        response = client.chat(
+            model="command-a-03-2025",
+            messages=[{"role": "user", "content": prompt}]
+        )
+        raw = response.message.content[0].text.strip()
+        raw = raw.replace("```json", "").replace("```", "").strip()
+        return json.loads(raw)
+    except Exception as e:
+        print(f"[scorer] Filter chips failed: {e}")
+        return []
 
 
 if __name__ == "__main__":
     from feed import get_posts_from_subreddit
 
     posts = get_posts_from_subreddit("food", limit=5)
-    print(f"Pulled {len(posts)} posts. Scoring in one batch...\n")
+    print(f"Pulled {len(posts)} posts. Scoring...\n")
 
     scored = score_posts("I love baking and food culture. No sad content.", posts, "")
 
     for post in scored:
         print(f"[{post['relevance']}%] {post['author']}: {post['text'][:80]}")
-        print(f"  → {post['reason']}")
+        print(f"  -> {post['reason']}")
         print()
+
+    print("\nFilter chips:")
+    chips = generate_filter_chips("baking and food culture")
+    print(chips)

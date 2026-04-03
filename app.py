@@ -1,11 +1,12 @@
-from flask import Flask, render_template, request
-from feed import get_posts_from_subreddit, validate_subreddit
-from scorer import score_posts
+from flask import Flask, render_template, request, jsonify
+from feed import get_posts_from_subreddit, validate_subreddit, deduplicate_posts
+from scorer import score_posts, generate_filter_chips
+from cache import get_cached, set_cached
 import cohere
 import os
-from dotenv import load_dotenv
-from db import init_db, log_interaction, get_interaction_context
 import json
+from dotenv import load_dotenv
+from db import init_db, log_interaction, get_interaction_context, log_session, get_analytics
 
 load_dotenv()
 co = cohere.ClientV2(os.getenv("COHERE_API_KEY"))
@@ -31,43 +32,45 @@ PRESETS = {
 PERSONAS = {
     "learner": {
         "label": "The Learner",
-        "emoji": "🧠",
+        "icon": "book-open",
         "description": "Deep dives, research, explainers",
         "preference": "I want educational, in-depth content. Long reads, research findings, how-things-work explainers. No clickbait or shallow takes."
     },
     "optimist": {
         "label": "The Optimist",
-        "emoji": "🌱",
+        "icon": "sun",
         "description": "Progress, kindness, good news",
         "preference": "I want positive, uplifting content. Stories of progress, kindness, creativity, and human achievement. Nothing toxic or depressing."
     },
     "analyst": {
         "label": "The Analyst",
-        "emoji": "📊",
+        "icon": "bar-chart-2",
         "description": "Data, strategy, critical thinking",
         "preference": "I want data-driven, evidence-based content. Strategic analysis, systems thinking, well-reasoned arguments. Skip the hot takes."
     },
     "explorer": {
         "label": "The Explorer",
-        "emoji": "🔭",
+        "icon": "compass",
         "description": "Niche, surprising, diverse",
         "preference": "I want surprising, niche, and diverse content. Things I wouldn't normally encounter. Broaden my perspective."
     },
     "minimalist": {
         "label": "The Minimalist",
-        "emoji": "⚡",
+        "icon": "zap",
         "description": "Signal-dense, no noise",
         "preference": "I want concise, high-signal content only. No filler, no drama, no noise. Maximum substance per word."
     },
 }
 
+
 def extract_subreddits(preference: str) -> list[str]:
     prompt = f"""A user described what they want to see in their social media feed:
 "{preference}"
 
-Return 2-3 relevant subreddit names (just the name, no r/ prefix).
-Reply ONLY with comma-separated names. Nothing else.
-Example: MachineLearning, productivity, learnprogramming"""
+Return 3-4 highly specific, active subreddit names that match this interest.
+Choose subreddits that are popular (100k+ subscribers preferred) and have quality content.
+Reply ONLY with comma-separated names, no r/ prefix. Nothing else.
+Example: MachineLearning, datascience, artificial"""
 
     try:
         response = co.chat(
@@ -76,10 +79,12 @@ Example: MachineLearning, productivity, learnprogramming"""
         )
         raw = response.message.content[0].text.strip().split(",")
         candidates = [n.strip() for n in raw if n.strip()]
-        return [n for n in candidates if validate_subreddit(n)]
+        valid = [n for n in candidates if validate_subreddit(n)]
+        return valid if valid else candidates[:3]
     except Exception as e:
         print(f"[app] extract_subreddits failed: {e}")
-        return []  # safe fallback
+        return []
+
 
 def generate_transparency_report(preference: str, scored_posts: list, behaviour_context: str) -> dict:
     if not scored_posts:
@@ -99,7 +104,7 @@ Average relevance of visible posts: {avg_score}/100.
 {len(hidden)} posts were filtered out as toxic, sponsored, or rage-bait.
 {f'User behaviour context: {behaviour_context}' if behaviour_context else 'No behaviour history yet.'}
 
-Write a transparency report for the user in 3 short sections:
+Write a transparency report in 3 short sections:
 1. "How I understood your preference" - one sentence
 2. "What I prioritised" - two to three bullet points, each max 10 words
 3. "What I filtered out" - one sentence
@@ -123,6 +128,7 @@ No markdown, no backticks."""
             "filtered_out": f"{len(hidden)} posts removed by your filters."
         }
 
+
 @app.route("/", methods=["GET", "POST"])
 def home():
     transparency = {}
@@ -132,38 +138,44 @@ def home():
     quality_score = 0
     mood = ""
     filtered_count = 0
+    filter_chips = []
+    active_chips = []
     filters = {"toxic": True, "sponsored": True, "ragebait": True}
-    
+
     if request.method == "POST":
         preference = request.form.get("preference", "")
         mood = request.form.get("mood", "")
         filters["toxic"] = request.form.get("filter_toxic") == "on"
         filters["sponsored"] = request.form.get("filter_sponsored") == "on"
         filters["ragebait"] = request.form.get("filter_ragebait") == "on"
-        
+        active_chips = request.form.getlist("active_chips")
+
         full_preference = preference
         if mood and mood in MOODS:
             full_preference += ". " + MOODS[mood]
-        
+        if active_chips:
+            full_preference += ". Focus on: " + ", ".join(active_chips)
+
         behaviour_context = get_interaction_context()
         subreddits = extract_subreddits(full_preference)
 
-        all_posts = []
-        for subreddit in subreddits:
-            posts = get_posts_from_subreddit(subreddit, limit=15)
-            all_posts.extend(posts)
-        
-        seen = set()
-        unique_posts = []
-        for p in all_posts:
-            key = p["text"][:80]
-            if key not in seen:
-                seen.add(key)
-                unique_posts.append(p)
-        
-        original_posts = [p.copy() for p in unique_posts]
-        scored_posts = score_posts(full_preference, unique_posts, behaviour_context)
+        cached = get_cached(full_preference, subreddits)
+        if cached:
+            scored_posts = cached
+            original_posts = [p.copy() for p in scored_posts]
+        else:
+            all_posts = []
+            for subreddit in subreddits:
+                posts = get_posts_from_subreddit(subreddit, limit=15, sort="top", time_filter="week")
+                all_posts.extend(posts)
+
+            unique_posts = deduplicate_posts(all_posts)
+            original_posts = [p.copy() for p in unique_posts]
+            scored_posts = score_posts(full_preference, unique_posts, behaviour_context)
+            set_cached(full_preference, subreddits, scored_posts)
+
         transparency = generate_transparency_report(full_preference, scored_posts, behaviour_context)
+        filter_chips = generate_filter_chips(preference)
 
         for p in scored_posts:
             if filters["toxic"] and p.get("is_toxic"):
@@ -177,13 +189,18 @@ def home():
                 filtered_count += 1
             else:
                 p["hidden"] = False
-        
+
         scored_posts.sort(key=lambda x: x.get("relevance", 0), reverse=True)
-        
+
         visible = [p for p in scored_posts if not p["hidden"]]
         if visible:
             quality_score = round(sum(p["relevance"] for p in visible) / len(visible))
-    
+
+        try:
+            log_session("web", preference, mood, quality_score, len(scored_posts), filtered_count)
+        except:
+            pass
+
     return render_template(
         "index.html",
         preference=preference,
@@ -197,11 +214,19 @@ def home():
         presets=PRESETS,
         personas=PERSONAS,
         transparency=transparency,
+        filter_chips=filter_chips,
+        active_chips=active_chips,
     )
+
+
+@app.route("/analytics")
+def analytics_page():
+    data = get_analytics()
+    return render_template("analytics.html", data=data)
+
 
 @app.route("/interact", methods=["POST"])
 def interact():
-    from flask import jsonify
     data = request.get_json(silent=True)
     if not data:
         return jsonify({"status": "error"}), 400
@@ -214,9 +239,9 @@ def interact():
     )
     return jsonify({"status": "ok"})
 
+
 @app.route("/refine", methods=["POST"])
 def refine():
-    from flask import jsonify
     data = request.get_json(silent=True)
     if not data:
         return jsonify({"error": "No data"}), 400
@@ -243,6 +268,7 @@ Reply with ONLY the new preference string. No explanation, no quotes, no preambl
     except Exception as e:
         print(f"[refine] Failed: {e}")
         return jsonify({"error": str(e)}), 500
+
 
 if __name__ == "__main__":
     app.run(debug=True)

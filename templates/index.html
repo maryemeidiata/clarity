@@ -5,28 +5,33 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Clarity</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600;9..40,700&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/lucide@latest"></script>
 <style>
   :root {
-    --bg: #0F0B1A;
-    --surface: rgba(255,255,255,0.04);
-    --surface-hover: rgba(255,255,255,0.07);
-    --glass: rgba(255,255,255,0.06);
-    --glass-border: rgba(255,255,255,0.08);
+    --bg: #0B0A12;
+    --bg-subtle: #13111f;
+    --surface: rgba(255,255,255,0.035);
+    --surface-hover: rgba(255,255,255,0.06);
+    --glass: rgba(255,255,255,0.05);
+    --glass-border: rgba(255,255,255,0.07);
+    --glass-border-hover: rgba(255,255,255,0.12);
     --purple: #7C6FF7;
-    --purple-bright: #9F8FFF;
-    --purple-glow: rgba(124,111,247,0.15);
+    --purple-bright: #A78BFA;
+    --purple-glow: rgba(124,111,247,0.12);
     --purple-deep: #4F46E5;
-    --text: #E8E4F0;
-    --text-secondary: rgba(255,255,255,0.5);
-    --text-muted: rgba(255,255,255,0.3);
+    --purple-gradient: linear-gradient(135deg, #4F46E5 0%, #7C3AED 50%, #A78BFA 100%);
+    --text: #E2DFF0;
+    --text-secondary: rgba(255,255,255,0.45);
+    --text-muted: rgba(255,255,255,0.25);
     --green: #34D399;
     --green-bg: rgba(52,211,153,0.1);
     --red: #F87171;
-    --red-bg: rgba(248,113,113,0.1);
+    --red-bg: rgba(248,113,113,0.08);
     --amber: #FBBF24;
-    --amber-bg: rgba(251,191,36,0.1);
-    --card-radius: 20px;
-    --small-radius: 14px;
+    --amber-bg: rgba(251,191,36,0.08);
+    --radius: 20px;
+    --radius-sm: 14px;
+    --radius-xs: 10px;
   }
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
@@ -36,244 +41,437 @@
     min-height: 100vh;
     overflow-x: hidden;
   }
-  body::before {
-    content: '';
-    position: fixed;
-    top: -200px; left: 50%; transform: translateX(-50%);
-    width: 600px; height: 600px;
-    background: radial-gradient(circle, rgba(124,111,247,0.12) 0%, transparent 70%);
+
+  /* ==================== WELCOME PAGE ==================== */
+  .welcome-overlay {
+    position: fixed; inset: 0; z-index: 500;
+    background: var(--bg);
+    display: flex; align-items: center; justify-content: center;
+    flex-direction: column;
+    transition: opacity 0.6s ease, transform 0.6s ease;
+  }
+  .welcome-overlay.leaving {
+    opacity: 0;
+    transform: scale(1.05);
     pointer-events: none;
-    z-index: 0;
+  }
+  .welcome-overlay.gone { display: none; }
+
+  .welcome-bg-orb {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(80px);
+    opacity: 0;
+    animation: orbFadeIn 2s ease forwards;
+  }
+  .orb-1 {
+    width: 400px; height: 400px;
+    top: 10%; left: 15%;
+    background: rgba(79,70,229,0.15);
+    animation-delay: 0.3s;
+  }
+  .orb-2 {
+    width: 300px; height: 300px;
+    bottom: 15%; right: 10%;
+    background: rgba(124,111,247,0.1);
+    animation-delay: 0.6s;
+  }
+  .orb-3 {
+    width: 200px; height: 200px;
+    top: 50%; left: 60%;
+    background: rgba(167,139,250,0.08);
+    animation-delay: 0.9s;
   }
 
-  /* NAV */
+  @keyframes orbFadeIn {
+    to { opacity: 1; }
+  }
+
+  .welcome-content {
+    position: relative; z-index: 1;
+    text-align: center;
+    padding: 0 32px;
+  }
+
+  .welcome-logo-mark {
+    width: 80px; height: 80px;
+    margin: 0 auto 32px;
+    position: relative;
+    opacity: 0;
+    animation: logoReveal 1s ease 0.2s forwards;
+  }
+  .welcome-logo-mark svg {
+    width: 80px; height: 80px;
+  }
+  .logo-ring {
+    fill: none; stroke: url(#logoGrad); stroke-width: 2;
+    stroke-dasharray: 220;
+    stroke-dashoffset: 220;
+    animation: ringDraw 1.5s ease 0.5s forwards;
+  }
+  .logo-center {
+    fill: url(#logoGrad);
+    opacity: 0;
+    animation: centerPulse 0.6s ease 1.2s forwards;
+  }
+  @keyframes logoReveal { to { opacity: 1; } }
+  @keyframes ringDraw { to { stroke-dashoffset: 0; } }
+  @keyframes centerPulse { to { opacity: 1; } }
+
+  .welcome-title {
+    font-size: 48px;
+    font-weight: 700;
+    letter-spacing: -1.5px;
+    background: var(--purple-gradient);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    background-clip: text;
+    opacity: 0;
+    animation: fadeUp 0.8s ease 0.8s forwards;
+    margin-bottom: 8px;
+  }
+  .welcome-subtitle {
+    font-size: 17px;
+    color: var(--text-secondary);
+    opacity: 0;
+    animation: fadeUp 0.8s ease 1s forwards;
+    margin-bottom: 48px;
+    font-weight: 300;
+  }
+  .welcome-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 16px 40px;
+    border-radius: 16px;
+    border: none;
+    background: var(--purple-gradient);
+    color: #fff;
+    font-size: 16px;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+    box-shadow: 0 8px 32px rgba(79,70,229,0.3);
+    opacity: 0;
+    animation: fadeUp 0.8s ease 1.3s forwards;
+    transition: transform 0.2s, box-shadow 0.2s;
+  }
+  .welcome-btn:hover { transform: translateY(-2px); box-shadow: 0 12px 40px rgba(79,70,229,0.4); }
+  .welcome-btn:active { transform: translateY(0); }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ==================== NAV ==================== */
   .nav {
     position: sticky; top: 0; z-index: 100;
-    background: rgba(15,11,26,0.8);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
+    background: rgba(11,10,18,0.75);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
     border-bottom: 1px solid var(--glass-border);
-    padding: 14px 24px;
+    padding: 12px 20px;
     display: flex;
     align-items: center;
     justify-content: space-between;
   }
-  .nav-left { display: flex; align-items: center; gap: 10px; }
+  .nav-left { display: flex; align-items: center; gap: 8px; }
   .nav-logo {
-    font-size: 20px; font-weight: 700;
-    background: linear-gradient(135deg, var(--purple-bright), #C4B5FD);
+    font-size: 18px; font-weight: 700;
+    background: var(--purple-gradient);
     -webkit-background-clip: text; -webkit-text-fill-color: transparent;
     background-clip: text;
   }
   .nav-dot {
-    width: 6px; height: 6px; border-radius: 50%;
+    width: 5px; height: 5px; border-radius: 50%;
     background: var(--green);
-    box-shadow: 0 0 8px var(--green);
+    box-shadow: 0 0 6px var(--green);
   }
-
-  /* TIMER */
+  .nav-right { display: flex; align-items: center; gap: 12px; }
+  .nav-link {
+    color: var(--text-muted);
+    text-decoration: none;
+    font-size: 12px;
+    font-weight: 500;
+    transition: color 0.2s;
+    display: flex; align-items: center; gap: 4px;
+  }
+  .nav-link:hover { color: var(--text-secondary); }
+  .nav-link i { width: 14px; height: 14px; }
   .timer-display {
-    font-size: 13px;
+    font-size: 12px;
     color: var(--text-secondary);
-    display: flex; align-items: center; gap: 8px;
+    display: flex; align-items: center; gap: 6px;
   }
   .timer-value {
-    font-family: 'DM Sans', monospace;
     font-weight: 600;
     color: var(--purple-bright);
-    font-size: 14px;
+    font-size: 13px;
   }
   .timer-set-btn {
     background: var(--glass);
     border: 1px solid var(--glass-border);
-    color: var(--text-secondary);
-    font-size: 12px;
+    color: var(--text-muted);
+    font-size: 11px;
     padding: 4px 10px;
     border-radius: 8px;
     cursor: pointer;
     font-family: inherit;
     transition: all 0.2s;
+    display: flex; align-items: center; gap: 4px;
   }
-  .timer-set-btn:hover { background: var(--surface-hover); color: var(--text); }
+  .timer-set-btn:hover { background: var(--surface-hover); color: var(--text-secondary); }
 
   .container {
-    max-width: 580px;
+    max-width: 560px;
     margin: 0 auto;
-    padding: 24px 16px 100px;
-    position: relative;
-    z-index: 1;
+    padding: 20px 16px 100px;
+    position: relative; z-index: 1;
   }
 
-  /* GLASS CARD BASE */
+  /* ==================== GLASS CARDS ==================== */
   .glass-card {
     background: var(--glass);
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
     border: 1px solid var(--glass-border);
-    border-radius: var(--card-radius);
+    border-radius: var(--radius);
     padding: 24px;
+    margin-bottom: 14px;
+    transition: border-color 0.2s;
+  }
+  .glass-card:hover { border-color: var(--glass-border-hover); }
+
+  /* ==================== INPUT SECTION ==================== */
+  .section-title {
+    font-size: 17px; font-weight: 600;
+    margin-bottom: 3px;
+  }
+  .section-subtitle {
+    font-size: 12px;
+    color: var(--text-muted);
     margin-bottom: 16px;
   }
 
-  /* INPUT SECTION */
-  .input-section h2 {
-    font-size: 20px; font-weight: 600;
-    margin-bottom: 3px;
+  /* PERSONAS */
+  .persona-row {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 6px;
+    margin-bottom: 16px;
   }
-  .input-section .subtitle {
-    font-size: 13px;
-    color: var(--text-secondary);
-    margin-bottom: 18px;
-  }
-
-  /* MOOD SELECTOR */
-  .mood-row {
-    display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap;
-  }
-  .mood-btn {
-    padding: 8px 16px;
-    border-radius: 24px;
+  .persona-card {
+    padding: 10px 6px;
+    border-radius: var(--radius-xs);
     border: 1px solid var(--glass-border);
     background: var(--surface);
-    color: var(--text-secondary);
-    font-size: 13px;
-    font-weight: 500;
-    font-family: inherit;
     cursor: pointer;
-    transition: all 0.25s;
-    display: flex; align-items: center; gap: 6px;
+    transition: all 0.2s;
+    text-align: center;
+    font-family: inherit;
+    color: var(--text);
   }
-  .mood-btn:hover { background: var(--surface-hover); color: var(--text); border-color: rgba(255,255,255,0.15); }
-  .mood-btn.selected {
-    background: var(--purple-glow);
-    border-color: var(--purple);
-    color: var(--purple-bright);
-  }
-  .mood-icon { font-size: 15px; }
+  .persona-card:hover { background: var(--surface-hover); border-color: var(--glass-border-hover); }
+  .persona-card.selected { background: var(--purple-glow); border-color: var(--purple); }
+  .persona-icon { display: flex; justify-content: center; margin-bottom: 4px; color: var(--purple-bright); }
+  .persona-icon i { width: 20px; height: 20px; }
+  .persona-name { font-size: 11px; font-weight: 600; display: block; }
+  .persona-desc { font-size: 9px; color: var(--text-muted); display: block; margin-top: 2px; line-height: 1.3; }
 
-  /* PRESETS */
-  .preset-row {
-    display: flex; gap: 6px; margin-bottom: 16px; flex-wrap: wrap;
-  }
-  .preset-btn {
-    padding: 6px 14px;
-    border-radius: 10px;
+  /* MOOD */
+  .mood-row { display: flex; gap: 6px; margin-bottom: 14px; flex-wrap: wrap; }
+  .mood-btn {
+    padding: 7px 14px;
+    border-radius: 20px;
     border: 1px solid var(--glass-border);
-    background: transparent;
+    background: var(--surface);
     color: var(--text-muted);
     font-size: 12px;
     font-weight: 500;
     font-family: inherit;
     cursor: pointer;
     transition: all 0.2s;
+    display: flex; align-items: center; gap: 5px;
   }
-  .preset-btn:hover { color: var(--text-secondary); border-color: rgba(255,255,255,0.15); }
+  .mood-btn:hover { background: var(--surface-hover); color: var(--text-secondary); }
+  .mood-btn.selected {
+    background: var(--purple-glow);
+    border-color: var(--purple);
+    color: var(--purple-bright);
+  }
+  .mood-btn i { width: 14px; height: 14px; }
+
+  /* PRESETS */
+  .preset-row { display: flex; gap: 5px; margin-bottom: 14px; flex-wrap: wrap; }
+  .preset-btn {
+    padding: 5px 12px;
+    border-radius: 8px;
+    border: 1px solid var(--glass-border);
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 11px;
+    font-weight: 500;
+    font-family: inherit;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .preset-btn:hover { color: var(--text-secondary); border-color: var(--glass-border-hover); }
 
   .pref-input {
     width: 100%;
-    padding: 14px 16px;
+    padding: 12px 14px;
     border: 1px solid var(--glass-border);
-    border-radius: var(--small-radius);
+    border-radius: var(--radius-sm);
     font-family: inherit;
-    font-size: 15px;
+    font-size: 14px;
     color: var(--text);
-    background: rgba(0,0,0,0.2);
+    background: rgba(0,0,0,0.25);
     resize: none;
     outline: none;
-    height: 68px;
+    height: 64px;
     line-height: 1.5;
     transition: all 0.2s;
   }
-  .pref-input:focus { border-color: var(--purple); background: rgba(0,0,0,0.3); box-shadow: 0 0 0 3px var(--purple-glow); }
+  .pref-input:focus { border-color: var(--purple); box-shadow: 0 0 0 3px var(--purple-glow); }
   .pref-input::placeholder { color: var(--text-muted); }
 
+  /* FILTER CHIPS */
+  .chips-row { display: flex; gap: 5px; margin: 12px 0; flex-wrap: wrap; }
+  .chip {
+    padding: 5px 12px;
+    border-radius: 16px;
+    border: 1px solid var(--glass-border);
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 11px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .chip:hover { border-color: var(--glass-border-hover); color: var(--text-secondary); }
+  .chip.active { background: var(--purple-glow); border-color: var(--purple); color: var(--purple-bright); }
+
   .filters-row {
-    display: flex; gap: 16px; margin: 16px 0 4px; flex-wrap: wrap;
+    display: flex; gap: 14px; margin: 14px 0 4px; flex-wrap: wrap;
   }
   .filter-item {
-    display: flex; align-items: center; gap: 6px;
-    font-size: 13px; color: var(--text-secondary);
+    display: flex; align-items: center; gap: 5px;
+    font-size: 12px; color: var(--text-muted);
     cursor: pointer; user-select: none;
   }
-  .filter-item input { accent-color: var(--purple); width: 15px; height: 15px; cursor: pointer; }
+  .filter-item input { accent-color: var(--purple); width: 14px; height: 14px; cursor: pointer; }
 
   .btn-submit {
     width: 100%;
-    padding: 14px;
-    border-radius: var(--small-radius);
+    padding: 13px;
+    border-radius: var(--radius-sm);
     border: none;
-    background: linear-gradient(135deg, var(--purple-deep), var(--purple));
+    background: var(--purple-gradient);
     color: white;
-    font-size: 15px;
+    font-size: 14px;
     font-weight: 600;
     font-family: inherit;
     cursor: pointer;
-    margin-top: 16px;
+    margin-top: 14px;
     transition: all 0.25s;
-    box-shadow: 0 4px 20px rgba(79,70,229,0.3);
-    position: relative;
-    overflow: hidden;
+    box-shadow: 0 4px 20px rgba(79,70,229,0.25);
   }
-  .btn-submit:hover { box-shadow: 0 6px 28px rgba(79,70,229,0.45); transform: translateY(-1px); }
+  .btn-submit:hover { box-shadow: 0 6px 28px rgba(79,70,229,0.4); transform: translateY(-1px); }
   .btn-submit:active { transform: translateY(0) scale(0.99); }
   .loading-note {
     text-align: center;
     font-size: 11px;
     color: var(--text-muted);
-    margin-top: 10px;
+    margin-top: 8px;
   }
 
-  /* QUALITY SECTION */
+  /* ==================== QUALITY ==================== */
   .quality-section {
-    display: flex; align-items: center; gap: 18px;
+    display: flex; align-items: center; gap: 16px;
   }
   .quality-ring {
-    width: 68px; height: 68px;
+    width: 60px; height: 60px;
     border-radius: 50%;
     display: flex; align-items: center; justify-content: center;
-    font-size: 24px; font-weight: 700;
+    font-size: 22px; font-weight: 700;
     flex-shrink: 0;
-    position: relative;
+    border: 2px solid var(--glass-border);
   }
-  .quality-ring::before {
-    content: '';
-    position: absolute;
-    inset: -3px;
-    border-radius: 50%;
-    padding: 3px;
-    background: conic-gradient(var(--green) calc(var(--score) * 1%), var(--glass-border) 0);
-    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-    -webkit-mask-composite: xor;
-    mask-composite: exclude;
-  }
-  .ring-high { color: var(--green); }
-  .ring-mid { color: var(--amber); }
-  .ring-low { color: var(--red); }
-  .quality-info h3 { font-size: 14px; font-weight: 600; }
-  .quality-info p { font-size: 12px; color: var(--text-muted); margin-top: 3px; }
+  .ring-high { color: var(--green); border-color: var(--green); }
+  .ring-mid { color: var(--amber); border-color: var(--amber); }
+  .ring-low { color: var(--red); border-color: var(--red); }
+  .quality-info h3 { font-size: 13px; font-weight: 600; }
+  .quality-info p { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
   .quality-stat {
     display: inline-block;
-    padding: 3px 10px;
-    border-radius: 8px;
-    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 6px;
+    font-size: 10px;
     font-weight: 600;
-    margin-top: 6px;
+    margin-top: 4px;
   }
   .stat-filtered { background: var(--red-bg); color: var(--red); }
 
-  /* TABS */
+  /* ==================== TRANSPARENCY ==================== */
+  .transparency-panel {
+    border-left: 2px solid var(--purple);
+  }
+  .tp-header {
+    font-size: 10px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 1px;
+    color: var(--purple-bright); margin-bottom: 12px;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .tp-header i { width: 14px; height: 14px; }
+  .tp-section { margin-bottom: 10px; }
+  .tp-label { font-size: 10px; color: var(--text-muted); font-weight: 600; margin-bottom: 3px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .tp-value { font-size: 12px; color: var(--text-secondary); line-height: 1.5; }
+  .tp-bullets { list-style: none; padding: 0; margin: 0; }
+  .tp-bullets li { font-size: 12px; color: var(--text-secondary); padding: 2px 0; }
+  .tp-bullets li::before { content: "→ "; color: var(--purple-bright); }
+
+  /* ==================== REFINE ==================== */
+  .refine-header { font-size: 12px; font-weight: 600; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
+  .refine-header i { width: 14px; height: 14px; color: var(--purple-bright); }
+  .refine-row { display: flex; gap: 8px; }
+  .refine-input {
+    flex: 1;
+    padding: 9px 12px;
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-xs);
+    background: rgba(0,0,0,0.25);
+    color: var(--text);
+    font-family: inherit;
+    font-size: 12px;
+    outline: none;
+  }
+  .refine-input:focus { border-color: var(--purple); }
+  .refine-btn {
+    padding: 9px 16px;
+    border-radius: var(--radius-xs);
+    border: none;
+    background: var(--purple-gradient);
+    color: white;
+    font-size: 12px;
+    font-weight: 600;
+    font-family: inherit;
+    cursor: pointer;
+  }
+  .refine-status { font-size: 11px; color: var(--text-muted); margin-top: 6px; min-height: 16px; }
+
+  /* ==================== TABS ==================== */
   .feed-tabs {
-    display: flex; gap: 4px;
+    display: flex; gap: 3px;
     background: var(--glass);
     border: 1px solid var(--glass-border);
-    border-radius: var(--small-radius);
-    padding: 4px;
-    margin-bottom: 16px;
+    border-radius: var(--radius-sm);
+    padding: 3px;
+    margin-bottom: 14px;
   }
   .tab-btn {
-    flex: 1; padding: 10px;
+    flex: 1; padding: 9px;
     border-radius: 11px; border: none;
-    font-size: 13px; font-weight: 600;
+    font-size: 12px; font-weight: 600;
     font-family: inherit; cursor: pointer;
     transition: all 0.25s;
     text-align: center;
@@ -281,269 +479,261 @@
     color: var(--text-muted);
   }
   .tab-btn.active {
-    background: linear-gradient(135deg, var(--purple-deep), var(--purple));
+    background: var(--purple-gradient);
     color: white;
-    box-shadow: 0 2px 12px rgba(79,70,229,0.25);
+    box-shadow: 0 2px 10px rgba(79,70,229,0.2);
   }
-  .tab-btn:not(.active):hover { color: var(--text-secondary); }
 
   .feed { display: block; }
   .feed.hidden { display: none; }
 
-  /* POST CARDS */
+  /* ==================== POST CARDS ==================== */
   .post-card {
     background: var(--glass);
     backdrop-filter: blur(8px);
     -webkit-backdrop-filter: blur(8px);
     border: 1px solid var(--glass-border);
-    border-radius: var(--card-radius);
-    padding: 20px;
+    border-radius: var(--radius);
+    padding: 18px;
     margin-bottom: 10px;
-    transition: all 0.25s;
+    transition: all 0.2s;
   }
-  .post-card:hover { background: var(--surface-hover); border-color: rgba(255,255,255,0.12); }
-  .post-card.hidden-post { opacity: 0.2; }
-  .post-card.flagged { border-left: 3px solid var(--red); }
+  .post-card:hover { border-color: var(--glass-border-hover); }
+  .post-card.flagged { border-left: 2px solid var(--red); }
 
   .post-top {
-    display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px;
+    display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px;
   }
-  .post-author { font-weight: 600; font-size: 14px; }
-  .post-handle { font-size: 12px; color: var(--text-muted); margin-top: 1px; }
+  .post-author { font-weight: 600; font-size: 13px; }
+  .post-handle { font-size: 11px; color: var(--text-muted); margin-top: 1px; }
   .relevance-badge {
-    padding: 4px 12px; border-radius: 10px;
-    font-size: 13px; font-weight: 700;
+    padding: 3px 10px; border-radius: 8px;
+    font-size: 12px; font-weight: 700;
     flex-shrink: 0;
   }
   .rel-high { background: var(--green-bg); color: var(--green); }
   .rel-mid { background: var(--amber-bg); color: var(--amber); }
   .rel-low { background: var(--red-bg); color: var(--red); }
 
-  .post-tags { display: flex; gap: 5px; margin-bottom: 10px; }
+  .post-tags { display: flex; gap: 4px; margin-bottom: 8px; }
   .tag {
-    font-size: 10px; padding: 3px 9px; border-radius: 6px;
+    font-size: 9px; padding: 2px 8px; border-radius: 5px;
     font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px;
   }
   .tag-toxic { background: var(--red-bg); color: var(--red); }
   .tag-sponsored { background: var(--amber-bg); color: var(--amber); }
-  .tag-ragebait { background: rgba(249,115,22,0.1); color: #FB923C; }
+  .tag-ragebait { background: rgba(249,115,22,0.08); color: #FB923C; }
   .tag-clean { background: var(--purple-glow); color: var(--purple-bright); }
 
   .post-text {
-    font-size: 14px; color: var(--text);
-    line-height: 1.6; margin-bottom: 10px;
-    opacity: 0.85;
+    font-size: 13px; color: var(--text);
+    line-height: 1.6; margin-bottom: 8px;
+    opacity: 0.8;
+  }
+  .post-image {
+    width: 100%; border-radius: 12px;
+    margin: 8px 0; max-height: 280px;
+    object-fit: cover;
   }
   .post-reason {
-    font-size: 12px;
+    font-size: 11px;
     color: var(--purple-bright);
     background: var(--purple-glow);
-    padding: 10px 14px;
-    border-radius: 12px;
-    margin-bottom: 12px;
-    line-height: 1.45;
+    padding: 8px 12px;
+    border-radius: 10px;
+    margin-bottom: 10px;
+    line-height: 1.4;
     border-left: 2px solid var(--purple);
   }
   .post-footer {
     display: flex; justify-content: space-between; align-items: center;
   }
   .post-meta {
-    font-size: 12px; color: var(--text-muted);
-    display: flex; gap: 14px;
+    font-size: 11px; color: var(--text-muted);
+    display: flex; gap: 12px;
   }
   .view-original {
-    font-size: 12px; color: var(--purple-bright);
+    font-size: 11px; color: var(--purple-bright);
     text-decoration: none; font-weight: 500;
-    opacity: 0.7; transition: opacity 0.2s;
+    opacity: 0.6; transition: opacity 0.2s;
+    display: flex; align-items: center; gap: 3px;
   }
   .view-original:hover { opacity: 1; }
+  .view-original i { width: 12px; height: 12px; }
 
-  /* EMPTY STATE */
-  .empty-state {
-    text-align: center; padding: 80px 20px;
-  }
-  .empty-glyph {
-    width: 64px; height: 64px; border-radius: 20px;
-    background: var(--purple-glow); border: 1px solid var(--glass-border);
-    display: flex; align-items: center; justify-content: center;
-    margin: 0 auto 20px; font-size: 28px;
-  }
-  .empty-state h3 { font-size: 18px; font-weight: 600; margin-bottom: 6px; }
-  .empty-state p { font-size: 14px; color: var(--text-muted); }
-
-  /* TIMER OVERLAY */
-  .timer-overlay {
-    display: none;
-    position: fixed; inset: 0;
-    background: rgba(15,11,26,0.92);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-    z-index: 200;
-    align-items: center; justify-content: center;
-    flex-direction: column;
-    gap: 16px;
-    text-align: center;
-    padding: 40px;
-  }
-  .timer-overlay.show { display: flex; }
-  .timer-overlay h2 { font-size: 28px; font-weight: 700; }
-  .timer-overlay p { font-size: 15px; color: var(--text-secondary); max-width: 360px; line-height: 1.6; }
-  .timer-extend-btn {
-    padding: 12px 32px; border-radius: var(--small-radius);
-    background: var(--glass); border: 1px solid var(--glass-border);
-    color: var(--text); font-size: 14px; font-weight: 500;
-    font-family: inherit; cursor: pointer; transition: all 0.2s;
-    margin-top: 8px;
-  }
-  .timer-extend-btn:hover { background: var(--surface-hover); }
-  .timer-close-btn {
-    padding: 12px 32px; border-radius: var(--small-radius);
-    background: linear-gradient(135deg, var(--purple-deep), var(--purple));
-    border: none;
-    color: white; font-size: 14px; font-weight: 600;
-    font-family: inherit; cursor: pointer;
-    box-shadow: 0 4px 16px rgba(79,70,229,0.3);
-    transition: all 0.2s;
-  }
-  .timer-close-btn:hover { transform: translateY(-1px); }
-
-  /* TIMER MODAL */
-  .timer-modal {
-    display: none;
-    position: fixed; inset: 0;
-    background: rgba(15,11,26,0.85);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    z-index: 200;
-    align-items: center; justify-content: center;
-  }
-  .timer-modal.show { display: flex; }
-  .timer-modal-content {
-    background: var(--glass);
-    border: 1px solid var(--glass-border);
-    border-radius: var(--card-radius);
-    padding: 32px;
-    text-align: center;
-    max-width: 340px;
-    width: 100%;
-  }
-  .timer-modal-content h3 { font-size: 18px; margin-bottom: 6px; }
-  .timer-modal-content p { font-size: 13px; color: var(--text-secondary); margin-bottom: 20px; }
-  .timer-options { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin-bottom: 16px; }
-  .timer-opt {
-    padding: 10px 20px; border-radius: 12px;
-    background: var(--surface); border: 1px solid var(--glass-border);
-    color: var(--text-secondary); font-size: 14px; font-weight: 500;
-    font-family: inherit; cursor: pointer; transition: all 0.2s;
-  }
-  .timer-opt:hover { border-color: var(--purple); color: var(--purple-bright); }
-  .timer-opt.selected { background: var(--purple-glow); border-color: var(--purple); color: var(--purple-bright); }
-  .timer-cancel {
-    background: none; border: none; color: var(--text-muted);
-    font-size: 13px; cursor: pointer; font-family: inherit;
-  }
-
-  @media (max-width: 600px) {
-    .container { padding: 16px 12px 80px; }
-    .glass-card { padding: 18px; }
-    .mood-row { gap: 6px; }
-    .mood-btn { padding: 7px 12px; font-size: 12px; }
-    .preset-btn { font-size: 11px; padding: 5px 10px; }
-    .post-card { padding: 16px; }
-  }
   .post-signals {
-    display: flex;
-    gap: 8px;
-    margin-top: 10px;
+    display: flex; gap: 6px; margin-top: 8px;
   }
   .signal-btn {
     background: none;
     border: 1px solid var(--glass-border);
     border-radius: 8px;
-    padding: 4px 12px;
+    padding: 4px 10px;
     cursor: pointer;
-    font-size: 13px;
-    color: var(--text-secondary);
+    font-size: 11px;
+    color: var(--text-muted);
     font-family: inherit;
-    transition: opacity 0.2s;
-  }
-  .signal-btn:hover { background: var(--surface-hover); color: var(--text); }
-  .signal-btn.sent { opacity: 0.25; pointer-events: none; }
-  .transparency-panel {
-    background: var(--glass);
-    border: 1px solid var(--glass-border);
-    border-radius: var(--card-radius);
-    padding: 20px;
-    margin-bottom: 16px;
-    border-left: 3px solid var(--purple);
-  }
-  .tp-header {
-    font-size: 11px; font-weight: 700;
-    text-transform: uppercase; letter-spacing: 0.8px;
-    color: var(--purple-bright); margin-bottom: 12px;
-  }
-  .tp-section { margin-bottom: 12px; }
-  .tp-label { font-size: 11px; color: var(--text-muted); font-weight: 600; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.5px; }
-  .tp-value { font-size: 13px; color: var(--text); line-height: 1.5; }
-  .tp-bullets { list-style: none; padding: 0; margin: 0; }
-  .tp-bullets li { font-size: 13px; color: var(--text); padding: 3px 0; }
-  .tp-bullets li::before { content: "→ "; color: var(--purple-bright); }
-  .refine-panel {
-    background: var(--glass);
-    border: 1px solid var(--glass-border);
-    border-radius: var(--card-radius);
-    padding: 20px;
-    margin-bottom: 16px;
-  }
-  .refine-header { font-size: 13px; font-weight: 600; margin-bottom: 10px; }
-  .refine-row { display: flex; gap: 8px; }
-  .refine-input {
-    flex: 1;
-    padding: 10px 14px;
-    border: 1px solid var(--glass-border);
-    border-radius: var(--small-radius);
-    background: rgba(0,0,0,0.2);
-    color: var(--text);
-    font-family: inherit;
-    font-size: 13px;
-    outline: none;
-  }
-  .refine-input:focus { border-color: var(--purple); }
-  .refine-btn {
-    padding: 10px 18px;
-    border-radius: var(--small-radius);
-    border: none;
-    background: linear-gradient(135deg, var(--purple-deep), var(--purple));
-    color: white;
-    font-size: 13px;
-    font-weight: 600;
-    font-family: inherit;
-    cursor: pointer;
-    white-space: nowrap;
-  }
-  .refine-status { font-size: 12px; color: var(--text-muted); margin-top: 8px; min-height: 18px; }
-  .personas-section { margin-bottom: 16px; }
-  .personas-label { font-size: 12px; color: var(--text-muted); margin-bottom: 8px; }
-  .persona-row { display: flex; gap: 8px; flex-wrap: wrap; }
-  .persona-card {
-    flex: 1; min-width: 80px;
-    padding: 10px 12px;
-    border-radius: 14px;
-    border: 1px solid var(--glass-border);
-    background: var(--surface);
-    cursor: pointer;
     transition: all 0.2s;
-    text-align: center;
-    font-family: inherit;
+    display: flex; align-items: center; gap: 4px;
   }
-  .persona-card:hover { background: var(--surface-hover); border-color: rgba(255,255,255,0.15); }
-  .persona-card.selected { background: var(--purple-glow); border-color: var(--purple); }
-  .persona-emoji { font-size: 20px; display: block; margin-bottom: 4px; }
-  .persona-name { font-size: 12px; font-weight: 600; color: var(--text); display: block; }
-  .persona-desc { font-size: 10px; color: var(--text-muted); display: block; margin-top: 2px; }
+  .signal-btn:hover { background: var(--surface-hover); color: var(--text-secondary); }
+  .signal-btn.sent { opacity: 0.2; pointer-events: none; }
+  .signal-btn i { width: 12px; height: 12px; }
+
+  /* ==================== EMPTY STATE ==================== */
+  .empty-state {
+    text-align: center; padding: 60px 20px;
+  }
+  .empty-icon {
+    width: 56px; height: 56px; border-radius: 16px;
+    background: var(--purple-glow); border: 1px solid var(--glass-border);
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 16px;
+    color: var(--purple-bright);
+  }
+  .empty-icon i { width: 24px; height: 24px; }
+  .empty-state h3 { font-size: 16px; font-weight: 600; margin-bottom: 4px; }
+  .empty-state p { font-size: 13px; color: var(--text-muted); }
+
+  /* ==================== TIMER MODAL ==================== */
+  .modal-backdrop {
+    display: none;
+    position: fixed; inset: 0;
+    background: rgba(11,10,18,0.85);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    z-index: 200;
+    align-items: center; justify-content: center;
+  }
+  .modal-backdrop.show { display: flex; }
+  .modal-content {
+    background: var(--bg-subtle);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius);
+    padding: 28px;
+    text-align: center;
+    max-width: 320px;
+    width: 90%;
+  }
+  .modal-content h3 { font-size: 16px; margin-bottom: 4px; }
+  .modal-content p { font-size: 12px; color: var(--text-muted); margin-bottom: 18px; }
+  .timer-options { display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; margin-bottom: 14px; }
+  .timer-opt {
+    padding: 8px 18px; border-radius: 10px;
+    background: var(--surface); border: 1px solid var(--glass-border);
+    color: var(--text-secondary); font-size: 13px; font-weight: 500;
+    font-family: inherit; cursor: pointer; transition: all 0.2s;
+  }
+  .timer-opt:hover { border-color: var(--purple); color: var(--purple-bright); }
+  .timer-cancel {
+    background: none; border: none; color: var(--text-muted);
+    font-size: 12px; cursor: pointer; font-family: inherit;
+  }
+
+  /* TIMER NUDGE (gentle notification, not full overlay) */
+  .timer-nudge {
+    display: none;
+    position: fixed;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 300;
+    background: var(--bg-subtle);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius);
+    padding: 32px;
+    text-align: center;
+    max-width: 360px;
+    width: 90%;
+    box-shadow: 0 24px 64px rgba(0,0,0,0.5);
+  }
+  .timer-nudge.show { display: block; }
+  .timer-nudge-backdrop {
+    display: none;
+    position: fixed; inset: 0; z-index: 299;
+    background: rgba(11,10,18,0.6);
+  }
+  .timer-nudge-backdrop.show { display: block; }
+  .nudge-close {
+    position: absolute; top: 12px; right: 12px;
+    background: none; border: none;
+    color: var(--text-muted); cursor: pointer;
+  }
+  .nudge-close i { width: 18px; height: 18px; }
+  .timer-nudge h3 { font-size: 18px; font-weight: 600; margin-bottom: 6px; }
+  .timer-nudge p { font-size: 13px; color: var(--text-secondary); line-height: 1.5; margin-bottom: 16px; }
+  .nudge-actions { display: flex; gap: 8px; justify-content: center; }
+  .nudge-btn-primary {
+    padding: 10px 24px; border-radius: var(--radius-xs);
+    background: var(--purple-gradient); border: none;
+    color: white; font-size: 13px; font-weight: 600;
+    font-family: inherit; cursor: pointer;
+  }
+  .nudge-btn-secondary {
+    padding: 10px 24px; border-radius: var(--radius-xs);
+    background: var(--surface); border: 1px solid var(--glass-border);
+    color: var(--text-secondary); font-size: 13px; font-weight: 500;
+    font-family: inherit; cursor: pointer;
+  }
+
+  /* ==================== BG GLOW ==================== */
+  .bg-glow {
+    position: fixed;
+    top: -150px; left: 50%; transform: translateX(-50%);
+    width: 500px; height: 500px;
+    background: radial-gradient(circle, rgba(124,111,247,0.08) 0%, transparent 70%);
+    pointer-events: none; z-index: 0;
+  }
+
+  /* ==================== RESPONSIVE ==================== */
+  @media (max-width: 600px) {
+    .welcome-title { font-size: 36px; }
+    .welcome-subtitle { font-size: 15px; }
+    .container { padding: 14px 12px 80px; }
+    .glass-card { padding: 18px; border-radius: 16px; }
+    .persona-row { grid-template-columns: repeat(3, 1fr); }
+    .persona-desc { display: none; }
+    .mood-btn { padding: 6px 10px; font-size: 11px; }
+    .post-card { padding: 14px; border-radius: 16px; }
+    .nav { padding: 10px 14px; }
+  }
 </style>
 </head>
 <body>
+
+<!-- ==================== WELCOME PAGE ==================== -->
+<div class="welcome-overlay" id="welcomeOverlay">
+  <div class="welcome-bg-orb orb-1"></div>
+  <div class="welcome-bg-orb orb-2"></div>
+  <div class="welcome-bg-orb orb-3"></div>
+  <div class="welcome-content">
+    <div class="welcome-logo-mark">
+      <svg viewBox="0 0 80 80" fill="none">
+        <defs>
+          <linearGradient id="logoGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#4F46E5"/>
+            <stop offset="50%" stop-color="#7C3AED"/>
+            <stop offset="100%" stop-color="#A78BFA"/>
+          </linearGradient>
+        </defs>
+        <circle cx="40" cy="40" r="35" class="logo-ring"/>
+        <circle cx="40" cy="40" r="10" class="logo-center"/>
+        <line x1="40" y1="2" x2="40" y2="14" stroke="url(#logoGrad)" stroke-width="2" stroke-linecap="round" opacity="0"><animate attributeName="opacity" from="0" to="0.6" dur="0.4s" begin="1.6s" fill="freeze"/></line>
+        <line x1="40" y1="66" x2="40" y2="78" stroke="url(#logoGrad)" stroke-width="2" stroke-linecap="round" opacity="0"><animate attributeName="opacity" from="0" to="0.6" dur="0.4s" begin="1.7s" fill="freeze"/></line>
+        <line x1="2" y1="40" x2="14" y2="40" stroke="url(#logoGrad)" stroke-width="2" stroke-linecap="round" opacity="0"><animate attributeName="opacity" from="0" to="0.6" dur="0.4s" begin="1.8s" fill="freeze"/></line>
+        <line x1="66" y1="40" x2="78" y2="40" stroke="url(#logoGrad)" stroke-width="2" stroke-linecap="round" opacity="0"><animate attributeName="opacity" from="0" to="0.6" dur="0.4s" begin="1.9s" fill="freeze"/></line>
+      </svg>
+    </div>
+    <h1 class="welcome-title">Clarity</h1>
+    <p class="welcome-subtitle">Your feed, your rules.</p>
+    <button class="welcome-btn" onclick="dismissWelcome()">
+      Let's get started
+      <i data-lucide="arrow-right" style="width:18px;height:18px;"></i>
+    </button>
+  </div>
+</div>
+
+<!-- BG -->
+<div class="bg-glow"></div>
 
 <!-- NAV -->
 <div class="nav">
@@ -551,17 +741,22 @@
     <span class="nav-logo">Clarity</span>
     <span class="nav-dot"></span>
   </div>
-  <div class="timer-display">
-    <span class="timer-value" id="timerValue">No limit</span>
-    <button class="timer-set-btn" onclick="openTimerModal()">Set timer</button>
+  <div class="nav-right">
+    <a href="/analytics" class="nav-link"><i data-lucide="bar-chart-2"></i> Stats</a>
+    <div class="timer-display">
+      <span class="timer-value" id="timerValue">--:--</span>
+      <button class="timer-set-btn" onclick="openTimerModal()">
+        <i data-lucide="clock" style="width:12px;height:12px;"></i> Timer
+      </button>
+    </div>
   </div>
 </div>
 
 <!-- TIMER MODAL -->
-<div class="timer-modal" id="timerModal">
-  <div class="timer-modal-content">
+<div class="modal-backdrop" id="timerModal">
+  <div class="modal-content">
     <h3>Session Timer</h3>
-    <p>Set a browsing limit. Clarity will gently remind you when time is up.</p>
+    <p>Set a browsing limit. Clarity will gently nudge you when time is up.</p>
     <div class="timer-options">
       <button class="timer-opt" onclick="selectTimer(5)">5 min</button>
       <button class="timer-opt" onclick="selectTimer(15)">15 min</button>
@@ -572,46 +767,47 @@
   </div>
 </div>
 
-<!-- TIMER OVERLAY -->
-<div class="timer-overlay" id="timerOverlay">
-  <h2>Time to take a break</h2>
-  <p>You've been browsing for a while. Clarity is here to help you stay intentional with your time.</p>
-  <button class="timer-close-btn" onclick="closeOverlay()">Close Clarity</button>
-  <button class="timer-extend-btn" onclick="extendTimer(5)">Just 5 more minutes</button>
+<!-- TIMER NUDGE -->
+<div class="timer-nudge-backdrop" id="nudgeBackdrop"></div>
+<div class="timer-nudge" id="timerNudge">
+  <button class="nudge-close" onclick="closeNudge()"><i data-lucide="x"></i></button>
+  <h3>Time for a breather</h3>
+  <p>You've been browsing for a while. Taking a short break can help you stay intentional with your time and energy.</p>
+  <div class="nudge-actions">
+    <button class="nudge-btn-secondary" onclick="extendTimer(5)">5 more minutes</button>
+    <button class="nudge-btn-primary" onclick="closeNudge()">Got it</button>
+  </div>
 </div>
 
 <div class="container">
 
   <!-- INPUT -->
-  <form method="POST" class="glass-card input-section">
-    <h2>What are you in the mood for?</h2>
-    <p class="subtitle">Pick a mood, choose a preset, or just describe it yourself.</p>
+  <form method="POST" class="glass-card">
+    <div class="section-title">Tell Clarity what you care about</div>
+    <p class="section-subtitle">Pick a profile, set your mood, or describe it yourself.</p>
 
-    <div class="personas-section">
-      <div class="personas-label">Not sure where to start? Pick a profile:</div>
-      <div class="persona-row">
-        {% for key, p in personas.items() %}
-        <button type="button" class="persona-card" onclick="applyPersona('{{ key }}')">
-          <span class="persona-emoji">{{ p.emoji }}</span>
-          <span class="persona-name">{{ p.label }}</span>
-          <span class="persona-desc">{{ p.description }}</span>
-        </button>
-        {% endfor %}
-      </div>
+    <div class="persona-row">
+      {% for key, p in personas.items() %}
+      <button type="button" class="persona-card" onclick="applyPersona('{{ key }}')">
+        <div class="persona-icon"><i data-lucide="{{ p.icon }}"></i></div>
+        <span class="persona-name">{{ p.label }}</span>
+        <span class="persona-desc">{{ p.description }}</span>
+      </button>
+      {% endfor %}
     </div>
 
     <div class="mood-row">
       <button type="button" class="mood-btn {% if mood == 'relax' %}selected{% endif %}" onclick="selectMood(this, 'relax')">
-        <span class="mood-icon">🌿</span> Relax
+        <i data-lucide="leaf"></i> Relax
       </button>
       <button type="button" class="mood-btn {% if mood == 'learn' %}selected{% endif %}" onclick="selectMood(this, 'learn')">
-        <span class="mood-icon">🧠</span> Learn
+        <i data-lucide="brain"></i> Learn
       </button>
       <button type="button" class="mood-btn {% if mood == 'laugh' %}selected{% endif %}" onclick="selectMood(this, 'laugh')">
-        <span class="mood-icon">😄</span> Laugh
+        <i data-lucide="smile"></i> Laugh
       </button>
       <button type="button" class="mood-btn {% if mood == 'explore' %}selected{% endif %}" onclick="selectMood(this, 'explore')">
-        <span class="mood-icon">🔮</span> Explore
+        <i data-lucide="telescope"></i> Explore
       </button>
     </div>
 
@@ -625,6 +821,18 @@
 
     <textarea class="pref-input" name="preference" id="prefInput" placeholder="e.g. I love cute animals, baking tips, and space science. Nothing depressing or political.">{{ preference }}</textarea>
     <input type="hidden" name="mood" id="moodInput" value="{{ mood }}">
+
+    {% if filter_chips %}
+    <div class="chips-row">
+      {% for chip in filter_chips %}
+      <label class="chip">
+        <input type="checkbox" name="active_chips" value="{{ chip }}" style="display:none" {% if chip in active_chips %}checked{% endif %}
+          onchange="this.parentElement.classList.toggle('active', this.checked)">
+        {{ chip }}
+      </label>
+      {% endfor %}
+    </div>
+    {% endif %}
 
     <div class="filters-row">
       <label class="filter-item">
@@ -647,8 +855,7 @@
 
   {% if scored_posts %}
 
-  <!-- QUALITY -->
-  <div class="glass-card quality-section" style="--score: {{ quality_score }}">
+  <div class="glass-card quality-section">
     <div class="quality-ring {{ 'ring-high' if quality_score > 60 }}{{ 'ring-mid' if quality_score > 30 and quality_score <= 60 }}{{ 'ring-low' if quality_score <= 30 }}">
       {{ quality_score }}
     </div>
@@ -661,9 +868,9 @@
     </div>
   </div>
 
-{% if transparency %}
-  <div class="transparency-panel">
-    <div class="tp-header">⚙ How your algorithm worked</div>
+  {% if transparency %}
+  <div class="glass-card transparency-panel">
+    <div class="tp-header"><i data-lucide="settings"></i> How your algorithm worked</div>
     {% if transparency.understood %}
     <div class="tp-section">
       <div class="tp-label">How I read your preference</div>
@@ -674,9 +881,7 @@
     <div class="tp-section">
       <div class="tp-label">What I prioritised</div>
       <ul class="tp-bullets">
-        {% for item in transparency.prioritised %}
-        <li>{{ item }}</li>
-        {% endfor %}
+        {% for item in transparency.prioritised %}<li>{{ item }}</li>{% endfor %}
       </ul>
     </div>
     {% endif %}
@@ -689,28 +894,24 @@
   </div>
   {% endif %}
 
-  {% if transparency %}
-  <div class="refine-panel">
-    <div class="refine-header">✏ Adjust your algorithm</div>
+  <div class="glass-card">
+    <div class="refine-header"><i data-lucide="pen-line"></i> Adjust your algorithm</div>
     <div class="refine-row">
-      <input class="refine-input" id="refineInput"
-             placeholder="e.g. Less relaxing content, more deep analysis">
+      <input class="refine-input" id="refineInput" placeholder="e.g. More memes, less news articles">
       <button class="refine-btn" onclick="refineAlgorithm()">Update</button>
     </div>
     <div class="refine-status" id="refineStatus"></div>
   </div>
-  {% endif %}
 
-  <!-- TABS -->
   <div class="feed-tabs">
     <button class="tab-btn active" onclick="showTab('reranked')">Your Feed</button>
     <button class="tab-btn" onclick="showTab('original')">Original Order</button>
   </div>
 
-  <!-- RERANKED -->
   <div id="reranked" class="feed">
     {% for post in scored_posts %}
-    <div class="post-card {{ 'hidden-post' if post.hidden }} {{ 'flagged' if post.is_toxic or post.is_ragebait }}">
+    {% if not post.hidden %}
+    <div class="post-card {{ 'flagged' if post.is_toxic or post.is_ragebait }}">
       <div class="post-top">
         <div>
           <div class="post-author">{{ post.author }}</div>
@@ -726,10 +927,9 @@
       </div>
       <div class="post-text">{{ post.text[:300] }}</div>
       {% if post.image_url %}
-      <img src="{{ post.image_url }}" alt="Post image"
-           style="width:100%; border-radius:12px; margin:10px 0; max-height:300px; object-fit:cover;">
+      <img src="{{ post.image_url }}" alt="" class="post-image" loading="lazy">
       {% endif %}
-      {% if post.reason and 'Scoring failed' not in post.reason and 'Not scored' not in post.reason %}
+      {% if post.reason and 'Scoring failed' not in post.reason and 'Not scored' not in post.reason and 'Could not' not in post.reason %}
       <div class="post-reason">{{ post.reason }}</div>
       {% endif %}
       <div class="post-footer">
@@ -738,26 +938,24 @@
           <span>{{ post.comments }} comments</span>
         </div>
         {% if post.url %}
-        <a href="{{ post.url }}" target="_blank" class="view-original">View original →</a>
+        <a href="{{ post.url }}" target="_blank" class="view-original">
+          View original <i data-lucide="external-link"></i>
+        </a>
         {% endif %}
       </div>
-      {% if not post.hidden %}
-      <div class="post-signals"
-           data-post-id="{{ post.id }}"
-           data-post-text="{{ post.text[:60] | e }}">
+      <div class="post-signals" data-post-id="{{ post.id }}" data-post-text="{{ post.text[:60] | e }}">
         <button class="signal-btn" onclick="sendSignal(this.parentElement, 'thumbs_up', 1.0, this)">
-          👍 Good
+          <i data-lucide="thumbs-up"></i> Good
         </button>
         <button class="signal-btn" onclick="sendSignal(this.parentElement, 'thumbs_down', -1.0, this)">
-          👎 Not for me
+          <i data-lucide="thumbs-down"></i> Not for me
         </button>
       </div>
-      {% endif %}
     </div>
+    {% endif %}
     {% endfor %}
   </div>
 
-  <!-- ORIGINAL -->
   <div id="original" class="feed hidden">
     {% for post in original_posts %}
     <div class="post-card">
@@ -769,8 +967,7 @@
       </div>
       <div class="post-text">{{ post.text[:300] }}</div>
       {% if post.image_url %}
-      <img src="{{ post.image_url }}" alt="Post image"
-           style="width:100%; border-radius:12px; margin:10px 0; max-height:300px; object-fit:cover;">
+      <img src="{{ post.image_url }}" alt="" class="post-image" loading="lazy">
       {% endif %}
       <div class="post-footer">
         <div class="post-meta">
@@ -778,7 +975,9 @@
           <span>{{ post.comments }} comments</span>
         </div>
         {% if post.url %}
-        <a href="{{ post.url }}" target="_blank" class="view-original">View original →</a>
+        <a href="{{ post.url }}" target="_blank" class="view-original">
+          View original <i data-lucide="external-link"></i>
+        </a>
         {% endif %}
       </div>
     </div>
@@ -786,47 +985,49 @@
   </div>
 
   {% else %}
-
   <div class="empty-state">
-    <div class="empty-glyph">◎</div>
+    <div class="empty-icon"><i data-lucide="target"></i></div>
     <h3>Your feed is waiting</h3>
     <p>Tell Clarity what you care about and it will build a feed just for you.</p>
   </div>
-
   {% endif %}
 
 </div>
 
 <script>
-const PRESETS = {
-  animals: "I love cute animals, pets, wildlife, and heartwarming animal stories",
-  foodie: "I want recipes, baking tips, cooking techniques, and food culture",
-  science: "I want science breakthroughs, space, technology, and research news",
-  creative: "I want art, design, photography, DIY projects, and creative inspiration",
-  fitness: "I want workout tips, healthy living, nutrition advice, and wellness content"
-};
+// Init Lucide icons
+lucide.createIcons();
 
+// Welcome
+function dismissWelcome() {
+  const el = document.getElementById('welcomeOverlay');
+  el.classList.add('leaving');
+  setTimeout(() => el.classList.add('gone'), 600);
+  sessionStorage.setItem('clarity_welcomed', '1');
+}
+if (sessionStorage.getItem('clarity_welcomed')) {
+  document.getElementById('welcomeOverlay').classList.add('gone');
+}
+
+// Presets & Personas
+const PRESETS = {{ presets | tojson }};
+const PERSONAS = {{ personas | tojson }};
+
+function applyPreset(key) { document.getElementById('prefInput').value = PRESETS[key]; }
+function applyPersona(key) {
+  const p = PERSONAS[key];
+  if (!p) return;
+  document.getElementById('prefInput').value = p.preference;
+  document.querySelectorAll('.persona-card').forEach(c => c.classList.remove('selected'));
+  event.currentTarget.classList.add('selected');
+}
 function selectMood(btn, mood) {
   document.querySelectorAll('.mood-btn').forEach(b => b.classList.remove('selected'));
   btn.classList.add('selected');
   document.getElementById('moodInput').value = mood;
 }
 
-function applyPreset(key) {
-  document.getElementById('prefInput').value = PRESETS[key];
-}
-
-const PERSONAS = {{ personas | tojson }};
-
-
-function applyPersona(key) {
-  const p = PERSONAS[key];
-  if (!p) return;
-  document.getElementById('prefInput').value = p.description;
-  document.querySelectorAll('.persona-card').forEach(c => c.classList.remove('selected'));
-  event.currentTarget.classList.add('selected');
-}
-
+// Tabs
 function showTab(tab) {
   document.getElementById('reranked').classList.toggle('hidden', tab !== 'reranked');
   document.getElementById('original').classList.toggle('hidden', tab !== 'original');
@@ -835,19 +1036,16 @@ function showTab(tab) {
   });
 }
 
-// TIMER
+// Timer
 let timerInterval = null;
 let timerSeconds = 0;
-
 function openTimerModal() { document.getElementById('timerModal').classList.add('show'); }
 function closeTimerModal() { document.getElementById('timerModal').classList.remove('show'); }
-
 function selectTimer(minutes) {
   timerSeconds = minutes * 60;
   closeTimerModal();
   startTimer();
 }
-
 function startTimer() {
   if (timerInterval) clearInterval(timerInterval);
   updateTimerDisplay();
@@ -856,28 +1054,29 @@ function startTimer() {
     updateTimerDisplay();
     if (timerSeconds <= 0) {
       clearInterval(timerInterval);
-      document.getElementById('timerOverlay').classList.add('show');
+      document.getElementById('timerNudge').classList.add('show');
+      document.getElementById('nudgeBackdrop').classList.add('show');
     }
   }, 1000);
 }
-
 function updateTimerDisplay() {
   const m = Math.floor(timerSeconds / 60);
   const s = timerSeconds % 60;
   document.getElementById('timerValue').textContent = m + ':' + String(s).padStart(2, '0');
 }
-
-function closeOverlay() {
-  document.getElementById('timerOverlay').classList.remove('show');
-  document.getElementById('timerValue').textContent = 'Done';
+function closeNudge() {
+  document.getElementById('timerNudge').classList.remove('show');
+  document.getElementById('nudgeBackdrop').classList.remove('show');
+  document.getElementById('timerValue').textContent = '--:--';
 }
-
 function extendTimer(minutes) {
   timerSeconds = minutes * 60;
-  document.getElementById('timerOverlay').classList.remove('show');
+  document.getElementById('timerNudge').classList.remove('show');
+  document.getElementById('nudgeBackdrop').classList.remove('show');
   startTimer();
 }
 
+// Signals
 function getOrCreateSession() {
   let sid = document.cookie.match(/clarity_session=([^;]+)/)?.[1];
   if (!sid) {
@@ -886,10 +1085,7 @@ function getOrCreateSession() {
   }
   return sid;
 }
-
 async function sendSignal(container, signal, weight, btn) {
-  const postId = container.dataset.postId;
-  const postText = container.dataset.postText;
   btn.classList.add('sent');
   try {
     await fetch('/interact', {
@@ -897,49 +1093,49 @@ async function sendSignal(container, signal, weight, btn) {
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({
         session_id: getOrCreateSession(),
-        post_id: postId,
-        post_text: postText,
-        signal: signal,
-        weight: weight
+        post_id: container.dataset.postId,
+        post_text: container.dataset.postText,
+        signal, weight
       })
     });
   } catch(e) {
-    console.error('[clarity] signal failed:', e);
     btn.classList.remove('sent');
   }
 }
-</script>
+
+// Refine
 async function refineAlgorithm() {
   const message = document.getElementById('refineInput').value.trim();
   if (!message) return;
-
   const status = document.getElementById('refineStatus');
-  const currentPref = document.getElementById('prefInput').value;
   status.textContent = 'Updating your algorithm...';
-
+  status.style.color = 'var(--text-muted)';
   try {
     const res = await fetch('/refine', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({
-        current_preference: currentPref,
-        message: message
+        current_preference: document.getElementById('prefInput').value,
+        message
       })
     });
     const data = await res.json();
     if (data.new_preference) {
       document.getElementById('prefInput').value = data.new_preference;
       document.getElementById('refineInput').value = '';
-      status.textContent = '✓ Algorithm updated. Hit "Re-rank my feed" to see the new results.';
+      status.textContent = 'Algorithm updated — hit "Re-rank my feed" to see new results.';
       status.style.color = 'var(--green)';
     } else {
       status.textContent = 'Something went wrong. Try again.';
     }
   } catch(e) {
     status.textContent = 'Network error. Try again.';
-    console.error('[clarity] refine failed:', e);
   }
 }
+
+// Re-init icons after page load
+setTimeout(() => lucide.createIcons(), 100);
+</script>
 
 </body>
 </html>
