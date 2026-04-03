@@ -816,29 +816,9 @@ function applyPreset(key) {
   document.getElementById('prefInput').value = PRESETS[key];
 }
 
-const PERSONAS = {
-  "the_enthusiast": {
-    "emoji": "🌟",
-    "label": "The Enthusiast",
-    "description": "I want to discover new and exciting content that matches my interests."
-  },
-  "the_cleanser": {
-    "emoji": "🧼",
-    "label": "The Cleanser",
-    "description": "I want to remove toxic and negative content for a healthier feed."
-  },
-  "the_explorer": {
-    "emoji": "🧭",
-    "label": "The Explorer",
-    "description": "I want to broaden my horizons and see diverse perspectives."
-  },
-  "the_time_saver": {
-    "emoji": "⏳",
-    "label": "The Time-Saver",
-    "description": "I want to see the best content without wasting time on low-quality posts."
-  }
-};
-  
+const PERSONAS = {{ personas | tojson }};
+
+
 function applyPersona(key) {
   const p = PERSONAS[key];
   if (!p) return;
