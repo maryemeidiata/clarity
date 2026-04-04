@@ -2,6 +2,9 @@ import cohere
 import json
 import os
 from dotenv import load_dotenv
+from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
+
+_vader = SentimentIntensityAnalyzer()
 
 load_dotenv()
 client = cohere.ClientV2(os.getenv("COHERE_API_KEY"))
@@ -86,6 +89,17 @@ Score all {len(posts)} posts:"""
             post["is_sponsored"] = False
             post["is_ragebait"] = False
             post["reason"] = "Not scored"
+
+    # VADER sentiment scoring — runs locally, no API call
+    for post in posts:
+        score = _vader.polarity_scores(post.get("text", ""))["compound"]
+        post["sentiment_score"] = round(score, 3)
+        if score >= 0.05:
+            post["tone"] = "positive"
+        elif score <= -0.05:
+            post["tone"] = "negative"
+        else:
+            post["tone"] = "neutral"
 
     return posts
 

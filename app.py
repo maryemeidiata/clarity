@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, jsonify
+dddfrom flask import Flask, render_template, request, jsonify
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from feed import get_posts_from_subreddit, validate_subreddit, deduplicate_posts, search_reddit
 from scorer import score_posts, generate_filter_chips
@@ -245,13 +245,14 @@ def home():
     preference = ""
     scored_posts = []
     original_posts = []
-    quality_score = 0
     persona_key = ""
     selected_tones = []
     filtered_count = 0
     filter_chips = []
     active_chips = []
     subreddits_used = []
+    tone_breakdown = {}
+    tone_warning = False
     filters = {"toxic": True, "sponsored": True, "ragebait": True}
 
     if request.method == "POST":
@@ -351,21 +352,25 @@ def home():
         scored_posts.sort(key=lambda x: x.get("relevance", 0), reverse=True)
 
         visible = [p for p in scored_posts if not p["hidden"]]
-        scoreable = [
-            p for p in visible
-            if p.get("reason", "") not in (
-                "Not scored", "Could not score this post.", "Scoring unavailable"
-            )
-            and p.get("relevance", 50) != 50
-        ]
-        if scoreable:
-            quality_score = round(sum(p["relevance"] for p in scoreable) / len(scoreable))
-        elif visible:
-            quality_score = round(sum(p["relevance"] for p in visible) / len(visible))
+
+        # Tone breakdown across visible posts
+        tone_counts = {"positive": 0, "neutral": 0, "negative": 0}
+        for p in visible:
+            tone_counts[p.get("tone", "neutral")] += 1
+        total_toned = len(visible) or 1
+        tone_breakdown = {
+            "positive": round(tone_counts["positive"] / total_toned * 100),
+            "neutral": round(tone_counts["neutral"] / total_toned * 100),
+            "negative": round(tone_counts["negative"] / total_toned * 100),
+        }
+        tone_warning = tone_breakdown["negative"] > 40
+        avg_tone = round(
+            sum(p.get("sentiment_score", 0) for p in visible) / total_toned, 3
+        )
 
         try:
-            log_session("web", preference, persona_key, quality_score,
-                        len(scored_posts), filtered_count)
+            log_session("web", preference, persona_key, 0,
+                        len(scored_posts), filtered_count, avg_tone)
         except Exception:
             pass
 
@@ -374,7 +379,6 @@ def home():
         preference=preference,
         scored_posts=scored_posts,
         original_posts=original_posts,
-        quality_score=quality_score,
         filters=filters,
         persona_key=persona_key,
         selected_tones=selected_tones,
@@ -386,13 +390,10 @@ def home():
         filter_chips=filter_chips,
         active_chips=active_chips,
         subreddits_used=subreddits_used,
+        tone_breakdown=tone_breakdown if scored_posts else {},
+        tone_warning=tone_warning if scored_posts else False,
     )
 
-
-@app.route("/analytics")
-def analytics_page():
-    data = get_analytics()
-    return render_template("analytics.html", data=data)
 
 
 @app.route("/interact", methods=["POST"])
@@ -455,10 +456,13 @@ def wrapped_page():
     analytics = get_analytics()
     wrapped = {
         "total_sessions": analytics["total_sessions"],
-        "avg_quality": analytics["avg_quality"],
         "total_filtered": analytics["total_filtered"],
         "thumbs_up": analytics["thumbs_up"],
         "thumbs_down": analytics["thumbs_down"],
+        "topic_tone": analytics["topic_tone"],
+        "mood_timeline": analytics["mood_timeline"],
+        "healthiest_topic": analytics["healthiest_topic"],
+        "blind_spot": analytics["blind_spot"],
     }
     conn = __import__('db').get_connection()
     rows = conn.execute(

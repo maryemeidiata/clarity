@@ -422,20 +422,22 @@
   }
 
   /* ==================== QUALITY ==================== */
-  .quality-section { display: flex; align-items: center; gap: 16px; }
-  .quality-ring {
-    width: 56px; height: 56px;
-    border-radius: 50%;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 20px; font-weight: 700;
-    flex-shrink: 0;
-    border: 2px solid var(--glass-border);
+  .tone-section { display: flex; flex-direction: column; gap: 8px; }
+  .tone-header { display: flex; justify-content: space-between; align-items: center; }
+  .tone-title { font-size: 13px; font-weight: 600; }
+  .tone-warning {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 3px 10px; border-radius: 20px;
+    background: rgba(248,113,113,0.12); color: var(--red);
+    font-size: 11px; font-weight: 600;
   }
-  .ring-high { color: var(--green); border-color: var(--green); }
-  .ring-mid { color: var(--amber); border-color: var(--amber); }
-  .ring-low { color: var(--red); border-color: var(--red); }
-  .quality-info h3 { font-size: 13px; font-weight: 600; }
-  .quality-info p { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+  .tone-bar { display: flex; height: 8px; border-radius: 4px; overflow: hidden; gap: 2px; }
+  .tone-pos { background: var(--green); border-radius: 4px; transition: width 0.8s ease; }
+  .tone-neu { background: var(--amber); border-radius: 4px; transition: width 0.8s ease; }
+  .tone-neg { background: var(--red); border-radius: 4px; transition: width 0.8s ease; }
+  .tone-labels { display: flex; gap: 12px; }
+  .tone-lbl { font-size: 10px; color: var(--text-muted); display: flex; align-items: center; gap: 4px; }
+  .tone-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
   .quality-stat { display: inline-block; padding: 2px 8px; border-radius: 6px; font-size: 10px; font-weight: 600; margin-top: 4px; }
   .stat-filtered { background: var(--red-bg); color: var(--red); }
 
@@ -752,7 +754,6 @@
     <span class="nav-dot"></span>
   </div>
   <div class="nav-right">
-    <a href="/analytics" class="nav-link"><i data-lucide="bar-chart-2"></i> Stats</a>
     <a href="/wrapped" class="nav-link"><i data-lucide="sparkles"></i> Wrapped</a>
     <div class="timer-display">
       <span class="timer-value" id="timerValue">--:--</span>
@@ -899,18 +900,29 @@
 
   {% if scored_posts %}
 
-  <div class="glass-card quality-section">
-    <div class="quality-ring {{ 'ring-high' if quality_score > 60 else ('ring-mid' if quality_score > 30 else 'ring-low') }}">
-      {{ quality_score }}
-    </div>
-    <div class="quality-info">
-      <h3>Feed Quality Score</h3>
-      <p>How well your feed matches what you asked for</p>
+  {% if tone_breakdown %}
+  <div class="glass-card tone-section">
+    <div class="tone-header">
+      <span class="tone-title">Feed Tone</span>
+      {% if tone_warning %}
+      <span class="tone-warning"><i data-lucide="alert-triangle" style="width:12px;height:12px;"></i> High negative content</span>
+      {% endif %}
       {% if filtered_count > 0 %}
-      <span class="quality-stat stat-filtered">{{ filtered_count }} posts filtered</span>
+      <span class="quality-stat stat-filtered">{{ filtered_count }} filtered</span>
       {% endif %}
     </div>
+    <div class="tone-bar">
+      <div class="tone-pos" style="width:{{ tone_breakdown.positive }}%"></div>
+      <div class="tone-neu" style="width:{{ tone_breakdown.neutral }}%"></div>
+      <div class="tone-neg" style="width:{{ tone_breakdown.negative }}%"></div>
+    </div>
+    <div class="tone-labels">
+      <span class="tone-lbl"><span class="tone-dot" style="background:var(--green)"></span>{{ tone_breakdown.positive }}% positive</span>
+      <span class="tone-lbl"><span class="tone-dot" style="background:var(--amber)"></span>{{ tone_breakdown.neutral }}% neutral</span>
+      <span class="tone-lbl"><span class="tone-dot" style="background:var(--red)"></span>{{ tone_breakdown.negative }}% negative</span>
+    </div>
   </div>
+  {% endif %}
 
   {% if transparency %}
   <div class="glass-card transparency-panel">

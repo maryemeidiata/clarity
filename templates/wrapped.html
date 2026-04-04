@@ -243,8 +243,8 @@
         <div class="stat-lbl">Sessions</div>
       </div>
       <div class="stat-item">
-        <div class="stat-num green">{{ wrapped.avg_quality }}</div>
-        <div class="stat-lbl">Avg Quality</div>
+        <div class="stat-num green">{{ wrapped.thumbs_up }}</div>
+        <div class="stat-lbl">Liked</div>
       </div>
       <div class="stat-item">
         <div class="stat-num red">{{ wrapped.total_filtered }}</div>
@@ -300,6 +300,70 @@
     <div class="shielded-label">posts Clarity shielded you from</div>
     <div class="shielded-sub">Toxic content, ads, and rage-bait — blocked before they reached your feed.</div>
   </div>
+
+  <!-- MENTAL HEALTH INDEX -->
+  {% if wrapped.topic_tone %}
+  <div class="dna-card">
+    <div class="dna-header"><i data-lucide="heart-pulse"></i> Mental Health Index</div>
+    <p style="font-size:12px;color:var(--text-muted);margin-bottom:16px;">Topics ranked by emotional tone of content surfaced — negative scores mean emotionally charged feeds.</p>
+    {% for row in wrapped.topic_tone %}
+    {% set tone = row.tone | float %}
+    {% set pref = row.preference | truncate(40) %}
+    <div style="margin-bottom:12px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+        <span style="font-size:12px;font-weight:500;">{{ pref }}</span>
+        <span style="font-size:12px;font-weight:700;color:{{ 'var(--green)' if tone > 0.05 else ('var(--red)' if tone < -0.05 else 'var(--amber)') }}">
+          {{ '+ ' if tone > 0 else '' }}{{ (tone * 100) | round | int }}
+        </span>
+      </div>
+      <div style="height:6px;border-radius:3px;background:rgba(255,255,255,0.05);overflow:hidden;">
+        <div style="height:100%;border-radius:3px;width:{{ [(tone + 1) / 2 * 100, 100] | min | round }}%;background:{{ 'var(--green)' if tone > 0.05 else ('var(--red)' if tone < -0.05 else 'var(--amber)') }};transition:width 1s ease;"></div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <!-- HEALTHIEST TOPIC + BLIND SPOT -->
+  {% if wrapped.healthiest_topic or wrapped.blind_spot %}
+  <div class="dna-card">
+    <div class="dna-header"><i data-lucide="sparkles"></i> Your Highlights</div>
+    {% if wrapped.healthiest_topic %}
+    <div style="margin-bottom:16px;padding:14px;border-radius:12px;background:rgba(52,211,153,0.08);border-left:3px solid var(--green);">
+      <div style="font-size:10px;color:var(--green);font-weight:700;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:4px;">Healthiest Topic</div>
+      <div style="font-size:13px;">{{ wrapped.healthiest_topic.preference | truncate(60) }}</div>
+      <div style="font-size:11px;color:var(--text-muted);margin-top:2px;">Your cleanest, most positive feed</div>
+    </div>
+    {% endif %}
+    {% if wrapped.blind_spot %}
+    <div style="padding:14px;border-radius:12px;background:rgba(248,113,113,0.08);border-left:3px solid var(--red);">
+      <div style="font-size:10px;color:var(--red);font-weight:700;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:4px;">Biggest Blind Spot</div>
+      <div style="font-size:13px;">{{ wrapped.blind_spot.preference | truncate(60) }}</div>
+      <div style="font-size:11px;color:var(--text-muted);margin-top:2px;">{{ wrapped.blind_spot.filtered }} posts filtered from this topic</div>
+    </div>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  <!-- MOOD TIMELINE -->
+  {% if wrapped.mood_timeline and wrapped.mood_timeline | length > 1 %}
+  <div class="dna-card">
+    <div class="dna-header"><i data-lucide="trending-up"></i> Mood Timeline</div>
+    <p style="font-size:12px;color:var(--text-muted);margin-bottom:16px;">Tone of your last {{ wrapped.mood_timeline | length }} sessions — are your feeds getting healthier?</p>
+    <div style="display:flex;align-items:flex-end;gap:6px;height:60px;">
+      {% for row in wrapped.mood_timeline | reverse %}
+      {% set tone = row.avg_tone | float %}
+      {% set height = [(tone + 1) / 2 * 100, 10] | max | round %}
+      <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;">
+        <div style="width:100%;height:{{ height }}%;border-radius:3px;background:{{ 'var(--green)' if tone > 0.05 else ('var(--red)' if tone < -0.05 else 'var(--amber)') }};transition:height 1s ease;min-height:4px;"></div>
+      </div>
+      {% endfor %}
+    </div>
+    <div style="display:flex;justify-content:space-between;margin-top:6px;font-size:10px;color:var(--text-muted);">
+      <span>Oldest</span><span>Most recent</span>
+    </div>
+  </div>
+  {% endif %}
 
 </div>
 
