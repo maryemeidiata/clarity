@@ -6,6 +6,7 @@ from cache import get_cached, set_cached
 import cohere
 import os
 import json
+import requests
 from dotenv import load_dotenv
 from db import init_db, log_interaction, get_interaction_context, log_session, get_analytics
 
@@ -67,6 +68,36 @@ TONES = {
 }
 
 
+def search_for_subreddits(preference: str, limit: int = 3) -> list[str]:
+    """Search Reddit's subreddit index for subreddits matching the keyword."""
+    raw = preference.split(".")[0]
+    raw = raw.replace("PRIMARY TOPIC:", "").strip()
+
+    stop_words = {
+        "i", "want", "to", "a", "an", "the", "and", "or", "for", "of",
+        "in", "on", "about", "with", "my", "me", "show", "find", "get",
+        "is", "are", "was", "be", "some", "more", "less", "all", "any"
+    }
+    words = [w.strip(".,!?") for w in raw.split() if w.lower().strip(".,!?") not in stop_words and len(w) > 2]
+    keyword = " ".join(words[:3]) if words else raw
+
+    try:
+        response = requests.get(
+            "https://www.reddit.com/subreddits/search.json",
+            headers={"User-Agent": "Clarity/1.0"},
+            params={"q": keyword, "limit": limit, "include_over_18": "off"},
+            timeout=5
+        )
+        if response.status_code != 200:
+            print(f"[app] Subreddit search error {response.status_code} for '{keyword}'")
+            return []
+        children = response.json().get("data", {}).get("children", [])
+        return [c["data"]["display_name"] for c in children if c["data"].get("subreddit_type") != "private"]
+    except Exception as e:
+        print(f"[app] search_for_subreddits failed: {e}")
+        return []
+
+
 def extract_subreddits(preference: str) -> list[str]:
     prompt = f"""A user described what they want to see in their social media feed:
 "{preference}"
@@ -80,14 +111,32 @@ Reply ONLY with comma-separated names. Nothing else.
 Example for "machine learning research": MachineLearning, deeplearning, technology"""
 
     try:
-        response = co.chat(
-            model="command-a-03-2025",
-            messages=[{"role": "user", "content": prompt}]
-        )
-        raw = response.message.content[0].text.strip().split(",")
-        candidates = [n.strip() for n in raw if n.strip()]
-        valid = [n for n in candidates if validate_subreddit(n)]
-        return valid if valid else candidates[:3]
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            llm_future = executor.submit(
+                lambda: co.chat(
+                    model="command-a-03-2025",
+                    messages=[{"role": "user", "content": prompt}]
+                )
+            )
+            reddit_future = executor.submit(search_for_subreddits, preference)
+
+            llm_response = llm_future.result()
+            reddit_candidates = reddit_future.result()
+
+        raw = llm_response.message.content[0].text.strip().split(",")
+        llm_candidates = [n.strip() for n in raw if n.strip()]
+
+        # Reddit search results take priority, LLM fills the rest
+        all_candidates = list(dict.fromkeys(reddit_candidates + llm_candidates))
+
+        # Validate LLM candidates only (Reddit search results already confirmed to exist)
+        llm_only = [n for n in all_candidates if n not in reddit_candidates]
+        with ThreadPoolExecutor(max_workers=max(len(llm_only), 1)) as executor:
+            results = list(executor.map(validate_subreddit, llm_only))
+        valid_llm = [n for n, ok in zip(llm_only, results) if ok]
+
+        valid = list(dict.fromkeys(reddit_candidates + valid_llm))
+        return valid if valid else llm_candidates[:3]
     except Exception as e:
         print(f"[app] extract_subreddits failed: {e}")
         return []
@@ -249,12 +298,15 @@ def home():
             print(f"[cache] MISS — fetching from Reddit")
             all_posts = []
 
+            reddit_matched_subs = set(search_for_subreddits(full_preference))
+
             def fetch_subreddit(sub):
+                min_ups = 0 if sub in reddit_matched_subs else -1
                 return get_posts_from_subreddit(
-                    sub, limit=20, sort=sort_method, time_filter=time_filter
+                    sub, limit=20, sort=sort_method, time_filter=time_filter, min_upvotes=min_ups
                 )
 
-            with ThreadPoolExecutor(max_workers=4) as executor:
+            with ThreadPoolExecutor(max_workers=8) as executor:
                 futures = {}
                 for sub in subreddits_used:
                     futures[executor.submit(fetch_subreddit, sub)] = sub

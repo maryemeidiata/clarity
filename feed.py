@@ -1,15 +1,20 @@
 
 import requests
 import time
+import random
 
 
-def get_posts_from_subreddit(subreddit: str, limit: int = 25, sort: str = "top", time_filter: str = "week") -> list[dict]:
+def get_posts_from_subreddit(subreddit: str, limit: int = 25, sort: str = "top", time_filter: str = "week", min_upvotes: int = -1) -> list[dict]:
     url = f"https://www.reddit.com/r/{subreddit}/{sort}.json"
     headers = {"User-Agent": "Clarity/1.0"}
     params = {"limit": limit, "t": time_filter}
 
     try:
+        time.sleep(random.uniform(0.1, 0.5))
         response = requests.get(url, headers=headers, params=params, timeout=5)
+        if response.status_code == 429:
+            time.sleep(2)
+            response = requests.get(url, headers=headers, params=params, timeout=5)
     except requests.exceptions.RequestException as e:
         print(f"[feed] Request failed for r/{subreddit}: {e}")
         return []
@@ -24,8 +29,11 @@ def get_posts_from_subreddit(subreddit: str, limit: int = 25, sort: str = "top",
         p = item["data"]
         ups = p.get("ups", 0)
 
-        # Dynamic upvote floor: lower for recent posts, higher for top/hot
-        min_ups = 5 if sort == "new" else 20
+        # Dynamic upvote floor: override if min_upvotes explicitly set, else use defaults
+        if min_upvotes >= 0:
+            min_ups = min_upvotes
+        else:
+            min_ups = 5 if sort == "new" else 20
         if ups < min_ups:
             continue
 
@@ -73,7 +81,11 @@ def search_reddit(query: str, limit: int = 10) -> list[dict]:
     params = {"q": query, "limit": limit, "sort": "relevance", "t": "week"}
 
     try:
+        time.sleep(random.uniform(0.1, 0.5))
         response = requests.get(url, headers=headers, params=params, timeout=5)
+        if response.status_code == 429:
+            time.sleep(2)
+            response = requests.get(url, headers=headers, params=params, timeout=5)
     except requests.exceptions.RequestException as e:
         print(f"[feed] Search failed for '{query}': {e}")
         return []
