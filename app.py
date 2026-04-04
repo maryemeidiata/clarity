@@ -1,5 +1,6 @@
 from flask import Flask, render_template, request, jsonify
-from feed import get_posts_from_subreddit, validate_subreddit, deduplicate_posts
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from feed import get_posts_from_subreddit, validate_subreddit, deduplicate_posts, search_reddit
 from scorer import score_posts, generate_filter_chips
 from cache import get_cached, set_cached
 import cohere
@@ -14,13 +15,6 @@ co = cohere.ClientV2(os.getenv("COHERE_API_KEY"))
 app = Flask(__name__)
 init_db()
 
-MOODS = {
-    "relax": "Prioritize calming, wholesome, feel-good content. Avoid anything stressful, political, or negative.",
-    "learn": "Prioritize educational, informative, and thought-provoking content. Favor depth over entertainment.",
-    "laugh": "Prioritize funny, lighthearted, and entertaining content. Memes and humor welcome.",
-    "explore": "Show me a diverse mix of interesting content. Surprise me with things I wouldn't normally see."
-}
-
 PRESETS = {
     "animals": "I love cute animals, pets, wildlife, and heartwarming animal stories",
     "foodie": "I want recipes, baking tips, cooking techniques, and food culture",
@@ -31,35 +25,45 @@ PRESETS = {
 
 PERSONAS = {
     "learner": {
-        "label": "The Learner",
+        "label": "Learner",
         "icon": "book-open",
-        "description": "Deep dives, research, explainers",
-        "preference": "I want educational, in-depth content. Long reads, research findings, how-things-work explainers. No clickbait or shallow takes."
-    },
-    "optimist": {
-        "label": "The Optimist",
-        "icon": "sun",
-        "description": "Progress, kindness, good news",
-        "preference": "I want positive, uplifting content. Stories of progress, kindness, creativity, and human achievement. Nothing toxic or depressing."
-    },
-    "analyst": {
-        "label": "The Analyst",
-        "icon": "bar-chart-2",
-        "description": "Data, strategy, critical thinking",
-        "preference": "I want data-driven, evidence-based content. Strategic analysis, systems thinking, well-reasoned arguments. Skip the hot takes."
+        "description": "Learn something specific",
+        "preference": "I want to learn and understand things in depth. Prioritise educational, well-explained, evidence-based content on my chosen topic. Favour accuracy and depth over entertainment.",
+        "sort": "top",
+        "time_filter": "month",
     },
     "explorer": {
-        "label": "The Explorer",
+        "label": "Explorer",
         "icon": "compass",
-        "description": "Niche, surprising, diverse",
-        "preference": "I want surprising, niche, and diverse content. Things I wouldn't normally encounter. Broaden my perspective."
+        "description": "Discover new perspectives",
+        "preference": "I want to discover things I wouldn't normally find. Prioritise novel, diverse, and unexpected content. Broaden my perspective beyond what I already know.",
+        "sort": "top",
+        "time_filter": "week",
     },
-    "minimalist": {
-        "label": "The Minimalist",
-        "icon": "zap",
-        "description": "Signal-dense, no noise",
-        "preference": "I want concise, high-signal content only. No filler, no drama, no noise. Maximum substance per word."
+    "recharger": {
+        "label": "Recharger",
+        "icon": "battery-charging",
+        "description": "Unwind intentionally",
+        "preference": "I want low-effort, pleasant content for downtime. Nothing stressful, heavy, or that requires concentration. Content should feel calm, light, and restorative.",
+        "sort": "hot",
+        "time_filter": "day",
     },
+    "tracker": {
+        "label": "Tracker",
+        "icon": "radio",
+        "description": "Stay current and connected",
+        "preference": "I want to stay up to date on what is happening. Prioritise recent, relevant content from my communities and topics. Include both news and community conversation.",
+        "sort": "new",
+        "time_filter": "day",
+    },
+}
+
+TONES = {
+    "funny":      {"label": "Funny",      "icon": "smile"},
+    "inspiring":  {"label": "Inspiring",  "icon": "star"},
+    "optimistic": {"label": "Optimistic", "icon": "sun"},
+    "analytical": {"label": "Analytical", "icon": "bar-chart-2"},
+    "calming":    {"label": "Calming",    "icon": "wind"},
 }
 
 
@@ -67,10 +71,13 @@ def extract_subreddits(preference: str) -> list[str]:
     prompt = f"""A user described what they want to see in their social media feed:
 "{preference}"
 
-Return 3-4 highly specific, active subreddit names that match this interest.
-Choose subreddits that are popular (100k+ subscribers preferred) and have quality content.
-Reply ONLY with comma-separated names, no r/ prefix. Nothing else.
-Example: MachineLearning, datascience, artificial"""
+Return exactly 3 subreddit names (no r/ prefix):
+- 2 subreddits that closely match the preference topic
+- 1 broader or adjacent subreddit that is related but not perfectly aligned
+
+The contrast between specific and broader subreddits is important for re-ranking quality.
+Reply ONLY with comma-separated names. Nothing else.
+Example for "machine learning research": MachineLearning, deeplearning, technology"""
 
     try:
         response = co.chat(
@@ -86,30 +93,69 @@ Example: MachineLearning, datascience, artificial"""
         return []
 
 
-def generate_transparency_report(preference: str, scored_posts: list, behaviour_context: str) -> dict:
+def generate_transparency_report(
+    preference: str,
+    scored_posts: list,
+    behaviour_context: str,
+    subreddits: list[str]
+) -> dict:
     if not scored_posts:
         return {}
 
     visible = [p for p in scored_posts if not p.get("hidden")]
     hidden = [p for p in scored_posts if p.get("hidden")]
-    avg_score = round(sum(p.get("relevance", 0) for p in visible) / len(visible)) if visible else 0
-    top_posts = sorted(visible, key=lambda x: x.get("relevance", 0), reverse=True)[:3]
-    top_handles = list(dict.fromkeys(p["handle"] for p in top_posts))
+
+    buckets = {"high": 0, "mid": 0, "low": 0, "unscored": 0}
+    for p in visible:
+        r = p.get("relevance", 50)
+        reason = p.get("reason", "")
+        if reason in ("Not scored", "Could not score this post.", "Scoring unavailable"):
+            buckets["unscored"] += 1
+        elif r >= 70:
+            buckets["high"] += 1
+        elif r >= 45:
+            buckets["mid"] += 1
+        else:
+            buckets["low"] += 1
+
+    subreddit_scores = {}
+    for p in visible:
+        handle = p.get("handle", "unknown")
+        if handle not in subreddit_scores:
+            subreddit_scores[handle] = []
+        subreddit_scores[handle].append(p.get("relevance", 50))
+    subreddit_avg = {
+        k: round(sum(v) / len(v)) for k, v in subreddit_scores.items()
+    }
+
+    filter_breakdown = {"toxic": 0, "sponsored": 0, "ragebait": 0}
+    for p in hidden:
+        if p.get("is_toxic"):
+            filter_breakdown["toxic"] += 1
+        if p.get("is_sponsored"):
+            filter_breakdown["sponsored"] += 1
+        if p.get("is_ragebait"):
+            filter_breakdown["ragebait"] += 1
+
+    avg_score = round(
+        sum(p.get("relevance", 0) for p in visible) / len(visible)
+    ) if visible else 0
 
     prompt = f"""A user set this preference for their social media feed:
 "{preference}"
 
-The algorithm scored {len(scored_posts)} posts. Top scores went to posts from: {', '.join(top_handles)}.
-Average relevance of visible posts: {avg_score}/100.
-{len(hidden)} posts were filtered out as toxic, sponsored, or rage-bait.
-{f'User behaviour context: {behaviour_context}' if behaviour_context else 'No behaviour history yet.'}
+The algorithm searched: {', '.join(subreddits)}.
+Scored {len(scored_posts)} posts total. Average relevance of visible posts: {avg_score}/100.
+Score distribution: {buckets['high']} posts scored 70+, {buckets['mid']} scored 45-69, {buckets['low']} scored below 45.
+{len(hidden)} posts filtered ({filter_breakdown['toxic']} toxic, {filter_breakdown['sponsored']} sponsored, {filter_breakdown['ragebait']} rage-bait).
+{f'Behaviour history used: {behaviour_context}' if behaviour_context else 'No behaviour history — scored on stated preference only.'}
 
 Write a transparency report in 3 short sections:
-1. "How I understood your preference" - one sentence
-2. "What I prioritised" - two to three bullet points, each max 10 words
-3. "What I filtered out" - one sentence
+1. "How I understood your preference" — one sentence explaining what the algorithm focused on
+2. "What I prioritised" — two to three bullet points, each max 10 words
+3. "What I filtered out" — one sentence summarising what was removed and why
 
-Reply in JSON with keys: understood, prioritised (array of strings), filtered_out.
+Reply in JSON with keys: understood (string), prioritised (array of strings), filtered_out (string).
 No markdown, no backticks."""
 
     try:
@@ -119,13 +165,28 @@ No markdown, no backticks."""
         )
         raw = response.message.content[0].text.strip()
         raw = raw.replace("```json", "").replace("```", "").strip()
-        return json.loads(raw)
+        report = json.loads(raw)
+        report["buckets"] = buckets
+        report["subreddit_avg"] = subreddit_avg
+        report["filter_breakdown"] = filter_breakdown
+        report["avg_score"] = avg_score
+        report["behaviour_used"] = bool(behaviour_context)
+        report["interaction_count"] = len(behaviour_context.split(";")) if behaviour_context else 0
+        report["subreddits"] = subreddits
+        return report
     except Exception as e:
         print(f"[transparency] Failed: {e}")
         return {
-            "understood": f"You want: {preference[:80]}",
-            "prioritised": ["Posts matching your stated topics", "Clean, non-toxic content"],
-            "filtered_out": f"{len(hidden)} posts removed by your filters."
+            "understood": f"Focused on: {preference[:80]}",
+            "prioritised": ["Posts matching your stated topic", "Clean, non-toxic content"],
+            "filtered_out": f"{len(hidden)} posts removed by your filters.",
+            "buckets": buckets,
+            "subreddit_avg": subreddit_avg,
+            "filter_breakdown": filter_breakdown,
+            "avg_score": avg_score,
+            "behaviour_used": bool(behaviour_context),
+            "interaction_count": 0,
+            "subreddits": subreddits,
         }
 
 
@@ -136,45 +197,90 @@ def home():
     scored_posts = []
     original_posts = []
     quality_score = 0
-    mood = ""
+    persona_key = ""
+    selected_tones = []
     filtered_count = 0
     filter_chips = []
     active_chips = []
+    subreddits_used = []
     filters = {"toxic": True, "sponsored": True, "ragebait": True}
 
     if request.method == "POST":
         preference = request.form.get("preference", "")
-        mood = request.form.get("mood", "")
+        persona_key = request.form.get("persona", "")
+        selected_tones = request.form.getlist("tones")
         filters["toxic"] = request.form.get("filter_toxic") == "on"
         filters["sponsored"] = request.form.get("filter_sponsored") == "on"
         filters["ragebait"] = request.form.get("filter_ragebait") == "on"
         active_chips = request.form.getlist("active_chips")
+        force_refresh = request.form.get("force_refresh") == "1"
 
-        full_preference = preference
-        if mood and mood in MOODS:
-            full_preference += ". " + MOODS[mood]
+        persona = PERSONAS.get(persona_key, {})
+        sort_method = persona.get("sort", "top")
+        time_filter = persona.get("time_filter", "week")
+
+        # Build full_preference — search text is explicitly PRIMARY
+        parts = []
+        if preference.strip():
+            parts.append(f"PRIMARY TOPIC: {preference.strip()}.")
+        if persona:
+            parts.append(f"User intent context: {persona['preference']}")
+        if selected_tones:
+            tone_labels = [TONES[t]["label"] for t in selected_tones if t in TONES]
+            parts.append(f"Desired tone: {', '.join(tone_labels)}.")
         if active_chips:
-            full_preference += ". Focus on: " + ", ".join(active_chips)
+            parts.append(f"Focus specifically on: {', '.join(active_chips)}.")
+
+        full_preference = " ".join(parts) if parts else "Show me interesting content"
 
         behaviour_context = get_interaction_context()
-        subreddits = extract_subreddits(full_preference)
+        subreddits_used = extract_subreddits(full_preference)
 
-        cached = get_cached(full_preference, subreddits)
+        if not subreddits_used:
+            print("[app] No valid subreddits found — will rely on search fallback")
+
+        cached = None if force_refresh else get_cached(full_preference, subreddits_used)
+
         if cached:
-            scored_posts = cached
-            original_posts = [p.copy() for p in scored_posts]
+            print(f"[cache] HIT for: {full_preference[:60]}")
+            scored_posts = [p.copy() for p in cached]
+            original_posts = [p.copy() for p in cached]
         else:
+            print(f"[cache] MISS — fetching from Reddit")
             all_posts = []
-            for subreddit in subreddits:
-                posts = get_posts_from_subreddit(subreddit, limit=15, sort="top", time_filter="week")
-                all_posts.extend(posts)
+
+            def fetch_subreddit(sub):
+                return get_posts_from_subreddit(
+                    sub, limit=20, sort=sort_method, time_filter=time_filter
+                )
+
+            with ThreadPoolExecutor(max_workers=4) as executor:
+                futures = {}
+                for sub in subreddits_used:
+                    futures[executor.submit(fetch_subreddit, sub)] = sub
+                if preference.strip():
+                    futures[executor.submit(search_reddit, preference.strip(), 10)] = "search"
+
+                for future in as_completed(futures):
+                    try:
+                        all_posts.extend(future.result())
+                    except Exception as e:
+                        print(f"[fetch] Error: {e}")
+
+            # Fallback: if subreddits returned nothing, use search only
+            if not all_posts and preference.strip():
+                print("[app] No posts from subreddits — using search-only fallback")
+                all_posts = search_reddit(preference.strip(), 15)
 
             unique_posts = deduplicate_posts(all_posts)
             original_posts = [p.copy() for p in unique_posts]
             scored_posts = score_posts(full_preference, unique_posts, behaviour_context)
-            set_cached(full_preference, subreddits, scored_posts)
+            # Store clean copy before filter mutation
+            set_cached(full_preference, subreddits_used, [p.copy() for p in scored_posts])
 
-        transparency = generate_transparency_report(full_preference, scored_posts, behaviour_context)
+        transparency = generate_transparency_report(
+            full_preference, scored_posts, behaviour_context, subreddits_used
+        )
         filter_chips = generate_filter_chips(preference)
 
         for p in scored_posts:
@@ -193,12 +299,22 @@ def home():
         scored_posts.sort(key=lambda x: x.get("relevance", 0), reverse=True)
 
         visible = [p for p in scored_posts if not p["hidden"]]
-        if visible:
+        scoreable = [
+            p for p in visible
+            if p.get("reason", "") not in (
+                "Not scored", "Could not score this post.", "Scoring unavailable"
+            )
+            and p.get("relevance", 50) != 50
+        ]
+        if scoreable:
+            quality_score = round(sum(p["relevance"] for p in scoreable) / len(scoreable))
+        elif visible:
             quality_score = round(sum(p["relevance"] for p in visible) / len(visible))
 
         try:
-            log_session("web", preference, mood, quality_score, len(scored_posts), filtered_count)
-        except:
+            log_session("web", preference, persona_key, quality_score,
+                        len(scored_posts), filtered_count)
+        except Exception:
             pass
 
     return render_template(
@@ -208,14 +324,16 @@ def home():
         original_posts=original_posts,
         quality_score=quality_score,
         filters=filters,
-        mood=mood,
+        persona_key=persona_key,
+        selected_tones=selected_tones,
         filtered_count=filtered_count,
-        moods=MOODS,
         presets=PRESETS,
         personas=PERSONAS,
+        tones=TONES,
         transparency=transparency,
         filter_chips=filter_chips,
         active_chips=active_chips,
+        subreddits_used=subreddits_used,
     )
 
 
@@ -268,6 +386,52 @@ Reply with ONLY the new preference string. No explanation, no quotes, no preambl
     except Exception as e:
         print(f"[refine] Failed: {e}")
         return jsonify({"error": str(e)}), 500
+
+
+@app.route("/generate_chips", methods=["POST"])
+def generate_chips():
+    data = request.get_json(silent=True)
+    preference = data.get("preference", "") if data else ""
+    if not preference.strip():
+        return jsonify({"chips": []})
+    chips = generate_filter_chips(preference)
+    return jsonify({"chips": chips})
+
+
+@app.route("/wrapped")
+def wrapped_page():
+    analytics = get_analytics()
+    wrapped = {
+        "total_sessions": analytics["total_sessions"],
+        "avg_quality": analytics["avg_quality"],
+        "total_filtered": analytics["total_filtered"],
+        "thumbs_up": analytics["thumbs_up"],
+        "thumbs_down": analytics["thumbs_down"],
+    }
+    conn = __import__('db').get_connection()
+    rows = conn.execute(
+        "SELECT preference FROM sessions WHERE preference IS NOT NULL AND preference != '' ORDER BY created_at DESC LIMIT 30"
+    ).fetchall()
+    conn.close()
+    all_prefs = " ".join([r["preference"] for r in rows]) if rows else ""
+    if all_prefs:
+        try:
+            response = co.chat(
+                model="command-a-03-2025",
+                messages=[{"role": "user", "content": f"""Analyze these user feed preferences and extract their content DNA profile.
+Preferences: "{all_prefs[:500]}"
+
+Reply with ONLY a JSON object. No markdown, no backticks.
+{{"top_topics": ["topic1", "topic2", "topic3", "topic4", "topic5"], "percentages": [35, 25, 20, 12, 8], "personality": "A one-sentence description of this user's content personality", "fun_fact": "A fun observation about their browsing habits"}}"""}]
+            )
+            raw = response.message.content[0].text.strip().replace("```json", "").replace("```", "").strip()
+            wrapped["dna"] = json.loads(raw)
+        except Exception as e:
+            print(f"[wrapped] DNA failed: {e}")
+            wrapped["dna"] = {"top_topics": ["General"], "percentages": [100], "personality": "Still building your profile!", "fun_fact": "Use Clarity more to unlock your content DNA."}
+    else:
+        wrapped["dna"] = {"top_topics": ["No data yet"], "percentages": [100], "personality": "Your content DNA is waiting to be discovered.", "fun_fact": "Start a session to begin building your profile."}
+    return render_template("wrapped.html", wrapped=wrapped)
 
 
 if __name__ == "__main__":

@@ -1,5 +1,7 @@
+
 import requests
 import time
+
 
 def get_posts_from_subreddit(subreddit: str, limit: int = 25, sort: str = "top", time_filter: str = "week") -> list[dict]:
     url = f"https://www.reddit.com/r/{subreddit}/{sort}.json"
@@ -16,12 +18,15 @@ def get_posts_from_subreddit(subreddit: str, limit: int = 25, sort: str = "top",
         print(f"[feed] Error {response.status_code} for r/{subreddit}")
         return []
 
-    posts = []
     now = time.time()
+    posts = []
     for item in response.json().get("data", {}).get("children", []):
         p = item["data"]
         ups = p.get("ups", 0)
-        if ups < 50:
+
+        # Dynamic upvote floor: lower for recent posts, higher for top/hot
+        min_ups = 5 if sort == "new" else 20
+        if ups < min_ups:
             continue
 
         text = p.get("title", "") + ". " + p.get("selftext", "")[:300]
@@ -57,6 +62,61 @@ def get_posts_from_subreddit(subreddit: str, limit: int = 25, sort: str = "top",
         })
 
     posts.sort(key=lambda x: x["engagement_rate"], reverse=True)
+    return posts
+
+
+def search_reddit(query: str, limit: int = 10) -> list[dict]:
+    """Fetch posts via Reddit search for a specific query term — supplements subreddit fetches."""
+    now = time.time()
+    url = "https://www.reddit.com/search.json"
+    headers = {"User-Agent": "Clarity/1.0"}
+    params = {"q": query, "limit": limit, "sort": "relevance", "t": "week"}
+
+    try:
+        response = requests.get(url, headers=headers, params=params, timeout=5)
+    except requests.exceptions.RequestException as e:
+        print(f"[feed] Search failed for '{query}': {e}")
+        return []
+
+    if response.status_code != 200:
+        print(f"[feed] Search error {response.status_code} for '{query}'")
+        return []
+
+    posts = []
+    for item in response.json().get("data", {}).get("children", []):
+        p = item["data"]
+        if p.get("ups", 0) < 5:
+            continue
+
+        text = p.get("title", "") + ". " + p.get("selftext", "")[:300]
+        if not text.strip() or len(text.strip()) < 20:
+            continue
+
+        created = p.get("created_utc", now)
+        hours_old = max((now - created) / 3600, 1)
+
+        image_url = None
+        if p.get("post_hint") == "image":
+            image_url = p.get("url")
+        elif p.get("preview"):
+            try:
+                image_url = p["preview"]["images"][0]["source"]["url"].replace("&amp;", "&")
+            except (KeyError, IndexError):
+                pass
+
+        posts.append({
+            "id": p["id"],
+            "author": p.get("author", "unknown"),
+            "handle": "r/" + p.get("subreddit", ""),
+            "text": text,
+            "likes": p.get("ups", 0),
+            "comments": p.get("num_comments", 0),
+            "time": created,
+            "url": "https://reddit.com" + p.get("permalink", ""),
+            "source": "reddit_search",
+            "image_url": image_url,
+            "engagement_rate": round(p.get("ups", 0) / hours_old, 1),
+        })
     return posts
 
 
@@ -107,3 +167,8 @@ if __name__ == "__main__":
             print(f"Likes: {post['likes']} | Engagement: {post['engagement_rate']}/hr")
     else:
         print("No posts returned.")
+
+    print("\n--- Search test ---")
+    search_posts = search_reddit("machine learning tutorials", limit=3)
+    for p in search_posts:
+        print(f"{p['handle']}: {p['text'][:100]}")

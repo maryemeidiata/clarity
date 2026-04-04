@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Clarity Wrapped</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600;9..40,700&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/lucide@latest"></script>
+<style>
+  :root {
+    --bg: #0B0A12;
+    --glass: rgba(255,255,255,0.05);
+    --glass-border: rgba(255,255,255,0.07);
+    --purple: #7C6FF7;
+    --purple-bright: #A78BFA;
+    --purple-glow: rgba(124,111,247,0.12);
+    --purple-gradient: linear-gradient(135deg, #4F46E5 0%, #7C3AED 50%, #A78BFA 100%);
+    --text: #E2DFF0;
+    --text-secondary: rgba(255,255,255,0.45);
+    --text-muted: rgba(255,255,255,0.25);
+    --green: #34D399;
+    --red: #F87171;
+    --amber: #FBBF24;
+    --radius: 20px;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    min-height: 100vh;
+    background: var(--bg);
+    font-family: 'DM Sans', sans-serif;
+    color: var(--text);
+    overflow-x: hidden;
+  }
+
+  .nav {
+    background: rgba(11,10,18,0.85);
+    backdrop-filter: blur(24px);
+    border-bottom: 1px solid var(--glass-border);
+    padding: 12px 20px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .nav-logo {
+    font-size: 18px; font-weight: 700;
+    background: var(--purple-gradient);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  }
+  .back-link {
+    color: var(--purple-bright); text-decoration: none;
+    font-size: 13px; display: flex; align-items: center; gap: 4px;
+  }
+  .back-link i { width: 14px; height: 14px; }
+
+  .container { max-width: 480px; margin: 0 auto; padding: 24px 16px 80px; }
+
+  /* WRAPPED CARD */
+  .wrapped-card {
+    background: linear-gradient(165deg, rgba(79,70,229,0.15) 0%, rgba(124,111,247,0.05) 50%, rgba(167,139,250,0.1) 100%);
+    border: 1px solid rgba(124,111,247,0.2);
+    border-radius: 24px;
+    padding: 32px 28px;
+    margin-bottom: 20px;
+    position: relative;
+    overflow: hidden;
+  }
+  .wrapped-card::before {
+    content: '';
+    position: absolute;
+    top: -80px; right: -80px;
+    width: 200px; height: 200px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(124,111,247,0.15) 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  .wrapped-badge {
+    display: inline-block;
+    padding: 4px 14px;
+    border-radius: 20px;
+    background: var(--purple-glow);
+    border: 1px solid rgba(124,111,247,0.2);
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: var(--purple-bright);
+    margin-bottom: 16px;
+  }
+  .wrapped-title {
+    font-size: 28px;
+    font-weight: 700;
+    letter-spacing: -1px;
+    background: var(--purple-gradient);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    margin-bottom: 4px;
+  }
+  .wrapped-sub { font-size: 13px; color: var(--text-secondary); margin-bottom: 28px; }
+
+  /* STATS ROW */
+  .stats-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 28px;
+  }
+  .stat-item { text-align: center; }
+  .stat-num {
+    font-size: 32px;
+    font-weight: 700;
+    line-height: 1;
+    margin-bottom: 4px;
+  }
+  .stat-num.purple { color: var(--purple-bright); }
+  .stat-num.green { color: var(--green); }
+  .stat-num.red { color: var(--red); }
+  .stat-lbl {
+    font-size: 10px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    font-weight: 600;
+  }
+
+  /* ENGAGEMENT */
+  .engage-section { margin-bottom: 28px; }
+  .engage-label { font-size: 11px; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
+  .engage-bar {
+    display: flex; height: 10px; border-radius: 5px; overflow: hidden; margin-bottom: 6px;
+  }
+  .engage-pos { background: var(--green); transition: width 1s ease; }
+  .engage-neg { background: var(--red); transition: width 1s ease; }
+  .engage-labels { display: flex; justify-content: space-between; font-size: 11px; color: var(--text-muted); }
+
+  /* DNA SECTION */
+  .dna-card {
+    background: var(--glass);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius);
+    padding: 24px;
+    margin-bottom: 16px;
+  }
+  .dna-header {
+    font-size: 10px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 1px;
+    color: var(--purple-bright);
+    margin-bottom: 16px;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .dna-header i { width: 14px; height: 14px; }
+
+  /* DNA BARS */
+  .dna-bar-item { margin-bottom: 12px; }
+  .dna-bar-label {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 4px;
+  }
+  .dna-bar-name { font-size: 13px; font-weight: 500; }
+  .dna-bar-pct { font-size: 12px; color: var(--purple-bright); font-weight: 700; }
+  .dna-bar-track {
+    height: 8px;
+    border-radius: 4px;
+    background: rgba(255,255,255,0.05);
+    overflow: hidden;
+  }
+  .dna-bar-fill {
+    height: 100%;
+    border-radius: 4px;
+    background: var(--purple-gradient);
+    transition: width 1.5s cubic-bezier(0.16, 1, 0.3, 1);
+    width: 0;
+  }
+
+  .dna-personality {
+    margin-top: 20px;
+    padding: 14px 16px;
+    border-radius: 12px;
+    background: var(--purple-glow);
+    border-left: 3px solid var(--purple);
+  }
+  .dna-personality-label {
+    font-size: 10px; color: var(--purple-bright);
+    font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.8px; margin-bottom: 4px;
+  }
+  .dna-personality-text {
+    font-size: 14px; color: var(--text);
+    line-height: 1.5; font-weight: 400;
+  }
+  .dna-fun {
+    margin-top: 12px;
+    font-size: 12px;
+    color: var(--text-secondary);
+    font-style: italic;
+  }
+
+  /* SHIELDED SECTION */
+  .shielded-card {
+    background: var(--glass);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius);
+    padding: 24px;
+    text-align: center;
+    margin-bottom: 16px;
+  }
+  .shielded-icon {
+    width: 48px; height: 48px;
+    border-radius: 14px;
+    background: rgba(248,113,113,0.1);
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 12px;
+    color: var(--red);
+  }
+  .shielded-icon i { width: 22px; height: 22px; }
+  .shielded-num { font-size: 36px; font-weight: 700; color: var(--red); }
+  .shielded-label { font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+  .shielded-sub { font-size: 11px; color: var(--text-muted); margin-top: 8px; opacity: 0.6; }
+
+  @media (max-width: 480px) {
+    .wrapped-card { padding: 24px 20px; }
+    .wrapped-title { font-size: 24px; }
+    .stat-num { font-size: 26px; }
+    .stats-row { gap: 8px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="nav">
+  <span class="nav-logo">Clarity</span>
+  <a href="/" class="back-link"><i data-lucide="arrow-left"></i> Back to feed</a>
+</div>
+
+<div class="container">
+
+  <!-- WRAPPED CARD -->
+  <div class="wrapped-card">
+    <div class="wrapped-badge">Your Clarity Wrapped</div>
+    <h1 class="wrapped-title">Here's your story</h1>
+    <p class="wrapped-sub">A look at how Clarity has been curating your world.</p>
+
+    <div class="stats-row">
+      <div class="stat-item">
+        <div class="stat-num purple">{{ wrapped.total_sessions }}</div>
+        <div class="stat-lbl">Sessions</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-num green">{{ wrapped.avg_quality }}</div>
+        <div class="stat-lbl">Avg Quality</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-num red">{{ wrapped.total_filtered }}</div>
+        <div class="stat-lbl">Filtered Out</div>
+      </div>
+    </div>
+
+    {% set total = wrapped.thumbs_up + wrapped.thumbs_down %}
+    {% if total > 0 %}
+    {% set pos_pct = (wrapped.thumbs_up / total * 100) | round %}
+    <div class="engage-section">
+      <div class="engage-label">Your engagement</div>
+      <div class="engage-bar">
+        <div class="engage-pos" style="width: {{ pos_pct }}%"></div>
+        <div class="engage-neg" style="width: {{ 100 - pos_pct }}%"></div>
+      </div>
+      <div class="engage-labels">
+        <span>{{ wrapped.thumbs_up }} liked</span>
+        <span>{{ wrapped.thumbs_down }} dismissed</span>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- CONTENT DNA -->
+  <div class="dna-card">
+    <div class="dna-header"><i data-lucide="dna"></i> Your Content DNA</div>
+
+    {% for i in range(wrapped.dna.top_topics | length) %}
+    <div class="dna-bar-item">
+      <div class="dna-bar-label">
+        <span class="dna-bar-name">{{ wrapped.dna.top_topics[i] }}</span>
+        <span class="dna-bar-pct">{{ wrapped.dna.percentages[i] }}%</span>
+      </div>
+      <div class="dna-bar-track">
+        <div class="dna-bar-fill" data-width="{{ wrapped.dna.percentages[i] }}"></div>
+      </div>
+    </div>
+    {% endfor %}
+
+    <div class="dna-personality">
+      <div class="dna-personality-label">Your content personality</div>
+      <div class="dna-personality-text">{{ wrapped.dna.personality }}</div>
+    </div>
+
+    <div class="dna-fun">{{ wrapped.dna.fun_fact }}</div>
+  </div>
+
+  <!-- SHIELDED -->
+  <div class="shielded-card">
+    <div class="shielded-icon"><i data-lucide="shield"></i></div>
+    <div class="shielded-num">{{ wrapped.total_filtered }}</div>
+    <div class="shielded-label">posts Clarity shielded you from</div>
+    <div class="shielded-sub">Toxic content, ads, and rage-bait — blocked before they reached your feed.</div>
+  </div>
+
+</div>
+
+<script>
+lucide.createIcons();
+
+// Animate DNA bars on load
+setTimeout(() => {
+  document.querySelectorAll('.dna-bar-fill').forEach(bar => {
+    bar.style.width = bar.dataset.width + '%';
+  });
+}, 300);
+</script>
+
+</body>
+</html>

@@ -6,6 +6,7 @@ from dotenv import load_dotenv
 load_dotenv()
 client = cohere.ClientV2(os.getenv("COHERE_API_KEY"))
 
+
 def score_posts(preference, posts, behaviour_context=""):
     if not posts:
         return []
@@ -14,19 +15,38 @@ def score_posts(preference, posts, behaviour_context=""):
     for i, post in enumerate(posts):
         posts_text += f"\n[POST {i}] by {post['author']} in {post['handle']}: {post['text'][:250]}\n"
 
-    behaviour_line = f"\nUser behaviour history (secondary signal, weight 0.2): {behaviour_context}" if behaviour_context else ""
+    behaviour_line = (
+        f"\nUser behaviour history (secondary signal, weight 0.2): {behaviour_context}"
+        if behaviour_context else ""
+    )
 
-    prompt = f"""You are a social media feed curator. A user wants their feed to show:
-"{preference}"{behaviour_line}
+    prompt = f"""You are scoring social media posts for a personalised feed re-ranking system.
 
-The stated preference is the PRIMARY ranking signal (weight 0.8).
-Behaviour history, if present, is secondary — use it to refine, not override.
+User preference: "{preference}"{behaviour_line}
 
-Here are the posts to evaluate:
+SCORING SCALE — use the FULL range. Do NOT cluster around 50:
+90-100 : Perfect match. Directly on-topic AND high quality/depth.
+70-89  : Strong match. Clearly relevant, good content.
+45-69  : Partial match. Loosely related or only tangentially relevant.
+20-44  : Weak match. Off-topic or low quality for this user.
+0-19   : No match, or actively bad (toxic, rage-bait, spam).
+
+CRITICAL RULES:
+- You MUST produce a SPREAD of scores. If posts vary in relevance, scores must reflect that.
+- A generic on-topic post scores 55-65. A deep, specific, high-quality match scores 80+.
+- An off-topic post from a broad subreddit scores below 40 even if the subreddit name is related.
+- is_toxic: true only for genuinely hateful, harassing or harmful content.
+- is_sponsored: true for obvious ads or paid promotions.
+- is_ragebait: true for deliberate outrage-farming, inflammatory clickbait.
+
+Posts to score:
 {posts_text}
 
-Score each post. Reply with ONLY a JSON array. No markdown, no backticks, no extra text.
-Each item must have: post_index, relevance (0-100), is_toxic (true/false), is_sponsored (true/false), is_ragebait (true/false), reason (one short sentence, max 12 words).
+Reply with ONLY a JSON array. No markdown, no backticks, no extra text.
+Each item: post_index (int), relevance (int 0-100), is_toxic (bool), is_sponsored (bool), is_ragebait (bool), reason (string, max 12 words explaining the score).
+
+Example:
+[{{"post_index": 0, "relevance": 87, "is_toxic": false, "is_sponsored": false, "is_ragebait": false, "reason": "Directly matches ML interest with strong research depth"}}]
 
 Score all {len(posts)} posts:"""
 
@@ -48,6 +68,7 @@ Score all {len(posts)} posts:"""
                 posts[idx]["is_sponsored"] = result.get("is_sponsored", False)
                 posts[idx]["is_ragebait"] = result.get("is_ragebait", False)
                 posts[idx]["reason"] = result.get("reason", "")
+
     except Exception as e:
         print(f"[scorer] Batch scoring failed: {e}")
         for post in posts:
@@ -57,6 +78,7 @@ Score all {len(posts)} posts:"""
             post.setdefault("is_ragebait", False)
             post.setdefault("reason", "Could not score this post.")
 
+    # Ensure every post has all required fields
     for post in posts:
         if "relevance" not in post:
             post["relevance"] = 50
@@ -69,12 +91,15 @@ Score all {len(posts)} posts:"""
 
 
 def generate_filter_chips(preference: str) -> list[str]:
+    if not preference or len(preference.strip()) < 5:
+        return []
+
     prompt = f"""A user wants to browse social media about: "{preference}"
 
 Suggest 5-6 short filter labels (2-3 words each) that would help them narrow down the content.
-These should be sub-categories or angles within their interest.
+These should be specific sub-categories or angles within their interest.
 
-Reply with ONLY a JSON array of strings. No markdown.
+Reply with ONLY a JSON array of strings. No markdown, no backticks.
 Example: ["Funny moments", "News updates", "Deep analysis", "Fan theories", "Behind the scenes"]"""
 
     try:

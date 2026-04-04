@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>Clarity</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600;9..40,700&display=swap" rel="stylesheet">
 <script src="https://unpkg.com/lucide@latest"></script>
@@ -40,88 +40,100 @@
     color: var(--text);
     min-height: 100vh;
     overflow-x: hidden;
+    -webkit-text-size-adjust: 100%;
   }
 
   /* ==================== WELCOME PAGE ==================== */
   .welcome-overlay {
     position: fixed; inset: 0; z-index: 500;
-    background: var(--bg);
+    background: #06050e;
     display: flex; align-items: center; justify-content: center;
-    flex-direction: column;
-    transition: opacity 0.6s ease, transform 0.6s ease;
+    flex-direction: column; overflow: hidden;
   }
-  .welcome-overlay.leaving {
-    opacity: 0;
-    transform: scale(1.05);
-    pointer-events: none;
-  }
+  .welcome-overlay.zooming { pointer-events: none; }
   .welcome-overlay.gone { display: none; }
-
-  .welcome-bg-orb {
-    position: absolute;
-    border-radius: 50%;
-    filter: blur(80px);
-    opacity: 0;
-    animation: orbFadeIn 2s ease forwards;
+  #spaceCanvas { position: absolute; inset: 0; z-index: 0; pointer-events: none; }
+  .nebula-layer {
+    position: absolute; inset: 0; z-index: 0;
+    background: radial-gradient(ellipse at 20% 80%, rgba(79,70,229,0.06) 0%, transparent 50%),
+                radial-gradient(ellipse at 80% 20%, rgba(167,139,250,0.04) 0%, transparent 50%),
+                radial-gradient(ellipse at 50% 50%, rgba(124,111,247,0.03) 0%, transparent 60%);
+    animation: nebulaShift 30s ease-in-out infinite; pointer-events: none;
   }
-  .orb-1 {
-    width: 400px; height: 400px;
-    top: 10%; left: 15%;
-    background: rgba(79,70,229,0.15);
-    animation-delay: 0.3s;
-  }
-  .orb-2 {
-    width: 300px; height: 300px;
-    bottom: 15%; right: 10%;
-    background: rgba(124,111,247,0.1);
-    animation-delay: 0.6s;
-  }
-  .orb-3 {
-    width: 200px; height: 200px;
-    top: 50%; left: 60%;
-    background: rgba(167,139,250,0.08);
-    animation-delay: 0.9s;
-  }
-
-  @keyframes orbFadeIn {
-    to { opacity: 1; }
-  }
-
+  @keyframes nebulaShift { 0%,100%{opacity:.6;transform:scale(1)} 50%{opacity:1;transform:scale(1.05)} }
+  .welcome-bg-orb { position: absolute; border-radius: 50%; filter: blur(100px); pointer-events: none; z-index: 1; opacity: 0; }
+  .orb-1 { width:600px;height:600px;top:-15%;left:0%;background:radial-gradient(circle,rgba(79,70,229,0.18) 0%,transparent 70%);animation:orbD1 14s ease-in-out infinite,orbFI 2s ease .3s forwards; }
+  .orb-2 { width:450px;height:450px;bottom:-10%;right:-5%;background:radial-gradient(circle,rgba(124,111,247,0.14) 0%,transparent 70%);animation:orbD2 18s ease-in-out infinite,orbFI 2s ease .6s forwards; }
+  .orb-3 { width:350px;height:350px;top:35%;right:15%;background:radial-gradient(circle,rgba(167,139,250,0.1) 0%,transparent 70%);animation:orbD3 11s ease-in-out infinite,orbFI 2s ease .9s forwards; }
+  .orb-4 { width:200px;height:200px;bottom:25%;left:20%;background:radial-gradient(circle,rgba(99,102,241,0.08) 0%,transparent 70%);animation:orbD2 20s ease-in-out 2s infinite,orbFI 2s ease 1.2s forwards; }
+  @keyframes orbFI { to{opacity:1} }
+  @keyframes orbD1 { 0%,100%{transform:translate(0,0) scale(1)} 25%{transform:translate(50px,-40px) scale(1.08)} 50%{transform:translate(-30px,50px) scale(.94)} 75%{transform:translate(40px,25px) scale(1.05)} }
+  @keyframes orbD2 { 0%,100%{transform:translate(0,0) scale(1)} 50%{transform:translate(-60px,-45px) scale(1.12)} }
+  @keyframes orbD3 { 0%,100%{transform:translate(0,0) scale(1)} 33%{transform:translate(35px,45px) scale(.9)} 66%{transform:translate(-30px,-20px) scale(1.07)} }
   .welcome-content {
-    position: relative; z-index: 1;
-    text-align: center;
-    padding: 0 32px;
+    position: relative; z-index: 5; text-align: center; padding: 0 24px;
+    max-width: 500px; width: 100%;
+    transition: all 1.4s cubic-bezier(0.4, 0, 0, 1);
   }
-
-  .welcome-logo-mark {
-    width: 80px; height: 80px;
-    margin: 0 auto 32px;
-    position: relative;
-    opacity: 0;
-    animation: logoReveal 1s ease 0.2s forwards;
+  .welcome-overlay.zooming .welcome-content { opacity: 0; transform: scale(0.8); }
+  .logo-wrap {
+    width: 130px; height: 130px; margin: 0 auto 28px; position: relative;
+    opacity: 0; animation: logoIn 1s ease .3s forwards;
+    transition: all 1.4s cubic-bezier(0.4, 0, 0, 1);
   }
-  .welcome-logo-mark svg {
-    width: 80px; height: 80px;
+  .welcome-overlay.zooming .logo-wrap { transform: scale(25); opacity: 0; }
+  @keyframes logoIn { to{opacity:1} }
+  .logo-wrap svg { width: 130px; height: 130px; }
+  .logo-glow {
+    position: absolute; top: 50%; left: 50%; width: 160px; height: 160px; margin: -80px 0 0 -80px;
+    border-radius: 50%; background: radial-gradient(circle, rgba(124,111,247,0.25) 0%, transparent 70%);
+    animation: glowP 3s ease-in-out infinite; pointer-events: none;
   }
-  .logo-ring {
-    fill: none; stroke: url(#logoGrad); stroke-width: 2;
-    stroke-dasharray: 220;
-    stroke-dashoffset: 220;
-    animation: ringDraw 1.5s ease 0.5s forwards;
+  @keyframes glowP { 0%,100%{transform:scale(1);opacity:.5} 50%{transform:scale(1.25);opacity:1} }
+  .orbit-r1 { animation: sp1 8s linear infinite; transform-origin: 65px 65px; }
+  .orbit-r2 { animation: sp2 11s linear infinite; transform-origin: 65px 65px; }
+  .orbit-r3 { animation: sp3 7s linear infinite; transform-origin: 65px 65px; }
+  @keyframes sp1 { to{transform:rotate(360deg)} }
+  @keyframes sp2 { to{transform:rotate(-360deg)} }
+  @keyframes sp3 { to{transform:rotate(360deg)} }
+  .eye-group { animation: blink 6s ease-in-out infinite; transform-origin: 65px 65px; }
+  @keyframes blink { 0%,42%,58%,100%{transform:scaleY(1)} 50%{transform:scaleY(.05)} }
+  .iris-group { animation: irisScan 7s ease-in-out infinite; }
+  @keyframes irisScan { 0%,100%{transform:translateX(0)} 25%{transform:translateX(3px)} 75%{transform:translateX(-3px)} }
+  .pupil-main { animation: ppulse 3s ease-in-out infinite; }
+  @keyframes ppulse { 0%,100%{r:8} 50%{r:10} }
+  .shine-dot { animation: shinePulse 3s ease-in-out .3s infinite; }
+  @keyframes shinePulse { 0%,100%{opacity:.6;r:3} 50%{opacity:1;r:4} }
+  .odot { animation: odotP 2s ease-in-out infinite; }
+  @keyframes odotP { 0%,100%{r:2.5;opacity:.7} 50%{r:3.5;opacity:1} }
+  .welcome-title {
+    font-size: clamp(42px,12vw,64px); font-weight: 700; letter-spacing: -2.5px;
+    background: linear-gradient(135deg,#4F46E5 0%,#7C3AED 35%,#A78BFA 70%,#C4B5FD 100%);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+    opacity: 0; animation: fadeUp .8s ease .8s forwards; margin-bottom: 6px;
   }
-  .logo-center {
-    fill: url(#logoGrad);
-    opacity: 0;
-    animation: centerPulse 0.6s ease 1.2s forwards;
+  .welcome-subtitle { font-size: clamp(15px,4vw,18px); color: rgba(255,255,255,0.4); font-weight: 300; opacity: 0; animation: fadeUp .8s ease 1s forwards; margin-bottom: 6px; }
+  .welcome-tagline { font-size: clamp(11px,3vw,13px); color: rgba(255,255,255,0.18); opacity: 0; animation: fadeUp .8s ease 1.15s forwards; margin-bottom: 44px; letter-spacing: .5px; }
+  @keyframes fadeUp { from{opacity:0;transform:translateY(24px)} to{opacity:1;transform:translateY(0)} }
+  .welcome-btn {
+    display: inline-flex; align-items: center; gap: 10px; padding: 16px 44px; border-radius: 18px; border: none;
+    background: linear-gradient(135deg,#4F46E5,#7C3AED); color: #fff; font-size: clamp(15px,4vw,17px);
+    font-weight: 600; font-family: inherit; cursor: pointer; box-shadow: 0 8px 36px rgba(79,70,229,.35);
+    opacity: 0; animation: fadeUp .8s ease 1.4s forwards, btnGlow 3s ease-in-out 2.5s infinite;
+    transition: transform .25s, box-shadow .25s; -webkit-tap-highlight-color: transparent; position: relative; overflow: hidden;
   }
-  @keyframes logoReveal { to { opacity: 1; } }
-  @keyframes ringDraw { to { stroke-dashoffset: 0; } }
-  @keyframes centerPulse { to { opacity: 1; } }
+  .welcome-btn::before { content:'';position:absolute;top:-50%;left:-50%;width:200%;height:200%;background:radial-gradient(circle,rgba(255,255,255,.08) 0%,transparent 60%);opacity:0;transition:opacity .3s; }
+  .welcome-btn:hover::before { opacity: 1; }
+  .welcome-btn:hover { transform: translateY(-3px) scale(1.02); box-shadow: 0 14px 48px rgba(79,70,229,.5); }
+  .welcome-btn:active { transform: translateY(0) scale(.98); }
+  @keyframes btnGlow { 0%,100%{box-shadow:0 8px 36px rgba(79,70,229,.35)} 50%{box-shadow:0 8px 52px rgba(79,70,229,.55)} }
+  .btn-arrow { display: inline-block; transition: transform .2s; }
+  .welcome-btn:hover .btn-arrow { transform: translateX(4px); }
 
   .welcome-title {
-    font-size: 48px;
+    font-size: clamp(36px, 10vw, 56px);
     font-weight: 700;
-    letter-spacing: -1.5px;
+    letter-spacing: -2px;
     background: var(--purple-gradient);
     -webkit-background-clip: text; -webkit-text-fill-color: transparent;
     background-clip: text;
@@ -130,102 +142,90 @@
     margin-bottom: 8px;
   }
   .welcome-subtitle {
-    font-size: 17px;
+    font-size: clamp(14px, 4vw, 17px);
     color: var(--text-secondary);
     opacity: 0;
     animation: fadeUp 0.8s ease 1s forwards;
-    margin-bottom: 48px;
+    margin-bottom: 12px;
     font-weight: 300;
   }
-  .welcome-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-    padding: 16px 40px;
-    border-radius: 16px;
-    border: none;
-    background: var(--purple-gradient);
-    color: #fff;
-    font-size: 16px;
-    font-weight: 600;
-    font-family: inherit;
-    cursor: pointer;
-    box-shadow: 0 8px 32px rgba(79,70,229,0.3);
+  .welcome-tagline {
+    font-size: clamp(11px, 3vw, 13px);
+    color: var(--text-muted);
     opacity: 0;
-    animation: fadeUp 0.8s ease 1.3s forwards;
-    transition: transform 0.2s, box-shadow 0.2s;
+    animation: fadeUp 0.8s ease 1.1s forwards;
+    margin-bottom: 40px;
+    letter-spacing: 0.3px;
   }
-  .welcome-btn:hover { transform: translateY(-2px); box-shadow: 0 12px 40px rgba(79,70,229,0.4); }
-  .welcome-btn:active { transform: translateY(0); }
-
-  @keyframes fadeUp {
-    from { opacity: 0; transform: translateY(20px); }
-    to { opacity: 1; transform: translateY(0); }
+  .welcome-btn {
+    display: inline-flex; align-items: center; gap: 10px; padding: 16px 44px; border-radius: 18px; border: none;
+    background: linear-gradient(135deg,#4F46E5,#7C3AED); color: #fff; font-size: clamp(15px,4vw,17px);
+    font-weight: 600; font-family: inherit; cursor: pointer; box-shadow: 0 8px 36px rgba(79,70,229,.35);
+    opacity: 0; animation: fadeUp .8s ease 1.4s forwards, btnGlow 3s ease-in-out 2.5s infinite;
+    transition: transform .25s, box-shadow .25s; -webkit-tap-highlight-color: transparent; position: relative; overflow: hidden;
   }
+  .welcome-btn::before { content:'';position:absolute;top:-50%;left:-50%;width:200%;height:200%;background:radial-gradient(circle,rgba(255,255,255,.08) 0%,transparent 60%);opacity:0;transition:opacity .3s; }
+  .welcome-btn:hover::before { opacity: 1; }
+  .welcome-btn:hover { transform: translateY(-3px) scale(1.02); box-shadow: 0 14px 48px rgba(79,70,229,.5); }
+  .welcome-btn:active { transform: translateY(0) scale(.98); }
+  @keyframes btnGlow { 0%,100%{box-shadow:0 8px 36px rgba(79,70,229,.35)} 50%{box-shadow:0 8px 52px rgba(79,70,229,.55)} }
+  .btn-arrow { display: inline-block; transition: transform .2s; }
+  .welcome-btn:hover .btn-arrow { transform: translateX(4px); }
 
   /* ==================== NAV ==================== */
   .nav {
     position: sticky; top: 0; z-index: 100;
-    background: rgba(11,10,18,0.75);
+    background: rgba(11,10,18,0.85);
     backdrop-filter: blur(24px);
     -webkit-backdrop-filter: blur(24px);
     border-bottom: 1px solid var(--glass-border);
-    padding: 12px 20px;
+    padding: 10px 16px;
     display: flex;
     align-items: center;
     justify-content: space-between;
+    gap: 8px;
   }
-  .nav-left { display: flex; align-items: center; gap: 8px; }
+  .nav-left { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
   .nav-logo {
-    font-size: 18px; font-weight: 700;
+    font-size: 17px; font-weight: 700;
     background: var(--purple-gradient);
     -webkit-background-clip: text; -webkit-text-fill-color: transparent;
     background-clip: text;
   }
-  .nav-dot {
-    width: 5px; height: 5px; border-radius: 50%;
-    background: var(--green);
-    box-shadow: 0 0 6px var(--green);
-  }
-  .nav-right { display: flex; align-items: center; gap: 12px; }
+  .nav-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--green); box-shadow: 0 0 6px var(--green); }
+  .nav-right { display: flex; align-items: center; gap: 8px; }
   .nav-link {
     color: var(--text-muted);
     text-decoration: none;
-    font-size: 12px;
+    font-size: 11px;
     font-weight: 500;
     transition: color 0.2s;
-    display: flex; align-items: center; gap: 4px;
+    display: flex; align-items: center; gap: 3px;
+    white-space: nowrap;
   }
   .nav-link:hover { color: var(--text-secondary); }
-  .nav-link i { width: 14px; height: 14px; }
-  .timer-display {
-    font-size: 12px;
-    color: var(--text-secondary);
-    display: flex; align-items: center; gap: 6px;
-  }
-  .timer-value {
-    font-weight: 600;
-    color: var(--purple-bright);
-    font-size: 13px;
-  }
+  .nav-link i { width: 13px; height: 13px; }
+  .timer-display { font-size: 11px; color: var(--text-secondary); display: flex; align-items: center; gap: 5px; }
+  .timer-value { font-weight: 600; color: var(--purple-bright); font-size: 12px; font-variant-numeric: tabular-nums; }
   .timer-set-btn {
     background: var(--glass);
     border: 1px solid var(--glass-border);
     color: var(--text-muted);
-    font-size: 11px;
-    padding: 4px 10px;
-    border-radius: 8px;
+    font-size: 10px;
+    padding: 4px 8px;
+    border-radius: 7px;
     cursor: pointer;
     font-family: inherit;
     transition: all 0.2s;
-    display: flex; align-items: center; gap: 4px;
+    display: flex; align-items: center; gap: 3px;
+    -webkit-tap-highlight-color: transparent;
   }
   .timer-set-btn:hover { background: var(--surface-hover); color: var(--text-secondary); }
 
   .container {
-    max-width: 560px;
+    max-width: 580px;
     margin: 0 auto;
-    padding: 20px 16px 100px;
+    padding: 16px 14px 100px;
     position: relative; z-index: 1;
   }
 
@@ -236,29 +236,26 @@
     -webkit-backdrop-filter: blur(12px);
     border: 1px solid var(--glass-border);
     border-radius: var(--radius);
-    padding: 24px;
-    margin-bottom: 14px;
+    padding: 20px;
+    margin-bottom: 12px;
     transition: border-color 0.2s;
   }
   .glass-card:hover { border-color: var(--glass-border-hover); }
 
   /* ==================== INPUT SECTION ==================== */
-  .section-title {
-    font-size: 17px; font-weight: 600;
-    margin-bottom: 3px;
-  }
-  .section-subtitle {
-    font-size: 12px;
-    color: var(--text-muted);
-    margin-bottom: 16px;
-  }
+  .section-title { font-size: 16px; font-weight: 600; margin-bottom: 2px; }
+  .section-subtitle { font-size: 12px; color: var(--text-muted); margin-bottom: 16px; }
 
   /* PERSONAS */
+  .intent-label {
+    font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.8px;
+    color: var(--text-muted); margin-bottom: 8px;
+  }
   .persona-row {
     display: grid;
-    grid-template-columns: repeat(5, 1fr);
+    grid-template-columns: repeat(4, 1fr);
     gap: 6px;
-    margin-bottom: 16px;
+    margin-bottom: 14px;
   }
   .persona-card {
     padding: 10px 6px;
@@ -270,41 +267,39 @@
     text-align: center;
     font-family: inherit;
     color: var(--text);
+    -webkit-tap-highlight-color: transparent;
   }
   .persona-card:hover { background: var(--surface-hover); border-color: var(--glass-border-hover); }
   .persona-card.selected { background: var(--purple-glow); border-color: var(--purple); }
-  .persona-icon { display: flex; justify-content: center; margin-bottom: 4px; color: var(--purple-bright); }
-  .persona-icon i { width: 20px; height: 20px; }
+  .persona-icon { display: flex; justify-content: center; margin-bottom: 5px; color: var(--purple-bright); }
+  .persona-icon i { width: 18px; height: 18px; }
   .persona-name { font-size: 11px; font-weight: 600; display: block; }
   .persona-desc { font-size: 9px; color: var(--text-muted); display: block; margin-top: 2px; line-height: 1.3; }
 
-  /* MOOD */
-  .mood-row { display: flex; gap: 6px; margin-bottom: 14px; flex-wrap: wrap; }
-  .mood-btn {
-    padding: 7px 14px;
+  /* TONES */
+  .tone-row { display: flex; gap: 5px; margin-bottom: 14px; flex-wrap: wrap; }
+  .tone-btn {
+    padding: 6px 12px;
     border-radius: 20px;
     border: 1px solid var(--glass-border);
     background: var(--surface);
     color: var(--text-muted);
-    font-size: 12px;
+    font-size: 11px;
     font-weight: 500;
     font-family: inherit;
     cursor: pointer;
     transition: all 0.2s;
-    display: flex; align-items: center; gap: 5px;
+    display: flex; align-items: center; gap: 4px;
+    -webkit-tap-highlight-color: transparent;
   }
-  .mood-btn:hover { background: var(--surface-hover); color: var(--text-secondary); }
-  .mood-btn.selected {
-    background: var(--purple-glow);
-    border-color: var(--purple);
-    color: var(--purple-bright);
-  }
-  .mood-btn i { width: 14px; height: 14px; }
+  .tone-btn:hover { background: var(--surface-hover); color: var(--text-secondary); }
+  .tone-btn.selected { background: var(--purple-glow); border-color: var(--purple); color: var(--purple-bright); }
+  .tone-btn i { width: 13px; height: 13px; }
 
-  /* PRESETS */
-  .preset-row { display: flex; gap: 5px; margin-bottom: 14px; flex-wrap: wrap; }
-  .preset-btn {
-    padding: 5px 12px;
+  /* TOPICS (replaces old presets) */
+  .topics-row { display: flex; gap: 5px; margin-bottom: 14px; flex-wrap: wrap; }
+  .topic-btn {
+    padding: 5px 11px;
     border-radius: 8px;
     border: 1px solid var(--glass-border);
     background: transparent;
@@ -314,8 +309,12 @@
     font-family: inherit;
     cursor: pointer;
     transition: all 0.2s;
+    display: flex; align-items: center; gap: 4px;
+    -webkit-tap-highlight-color: transparent;
   }
-  .preset-btn:hover { color: var(--text-secondary); border-color: var(--glass-border-hover); }
+  .topic-btn:hover { color: var(--text-secondary); border-color: var(--glass-border-hover); }
+  .topic-btn.selected { background: var(--surface); border-color: var(--glass-border-hover); color: var(--text-secondary); }
+  .topic-btn input { display: none; }
 
   .pref-input {
     width: 100%;
@@ -328,15 +327,20 @@
     background: rgba(0,0,0,0.25);
     resize: none;
     outline: none;
-    height: 64px;
+    height: 60px;
     line-height: 1.5;
     transition: all 0.2s;
+    -webkit-appearance: none;
   }
   .pref-input:focus { border-color: var(--purple); box-shadow: 0 0 0 3px var(--purple-glow); }
   .pref-input::placeholder { color: var(--text-muted); }
 
-  /* FILTER CHIPS */
-  .chips-row { display: flex; gap: 5px; margin: 12px 0; flex-wrap: wrap; }
+  /* CHIPS */
+  .chips-section { margin: 10px 0; }
+  .chips-label { font-size: 10px; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; display: flex; align-items: center; gap: 6px; }
+  .chips-loading { display: inline-block; width: 10px; height: 10px; border: 1.5px solid var(--glass-border); border-top-color: var(--purple-bright); border-radius: 50%; animation: spin 0.6s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .chips-row { display: flex; gap: 5px; flex-wrap: wrap; }
   .chip {
     padding: 5px 12px;
     border-radius: 16px;
@@ -347,13 +351,12 @@
     font-weight: 500;
     cursor: pointer;
     transition: all 0.2s;
+    -webkit-tap-highlight-color: transparent;
   }
   .chip:hover { border-color: var(--glass-border-hover); color: var(--text-secondary); }
   .chip.active { background: var(--purple-glow); border-color: var(--purple); color: var(--purple-bright); }
 
-  .filters-row {
-    display: flex; gap: 14px; margin: 14px 0 4px; flex-wrap: wrap;
-  }
+  .filters-row { display: flex; gap: 12px; margin: 12px 0 4px; flex-wrap: wrap; }
   .filter-item {
     display: flex; align-items: center; gap: 5px;
     font-size: 12px; color: var(--text-muted);
@@ -361,6 +364,8 @@
   }
   .filter-item input { accent-color: var(--purple); width: 14px; height: 14px; cursor: pointer; }
 
+  /* LOADING STATE */
+  .btn-submit-wrap { position: relative; }
   .btn-submit {
     width: 100%;
     padding: 13px;
@@ -372,28 +377,57 @@
     font-weight: 600;
     font-family: inherit;
     cursor: pointer;
-    margin-top: 14px;
+    margin-top: 12px;
     transition: all 0.25s;
     box-shadow: 0 4px 20px rgba(79,70,229,0.25);
+    -webkit-tap-highlight-color: transparent;
+    position: relative;
+    overflow: hidden;
   }
   .btn-submit:hover { box-shadow: 0 6px 28px rgba(79,70,229,0.4); transform: translateY(-1px); }
   .btn-submit:active { transform: translateY(0) scale(0.99); }
-  .loading-note {
-    text-align: center;
-    font-size: 11px;
-    color: var(--text-muted);
-    margin-top: 8px;
+  .btn-submit.loading { pointer-events: none; opacity: 0.8; }
+  .btn-submit.loading::after {
+    content: '';
+    position: absolute; inset: 0;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.15), transparent);
+    animation: shimmer 1.2s infinite;
+  }
+  @keyframes shimmer { from { transform: translateX(-100%); } to { transform: translateX(100%); } }
+
+  /* LOADING SKELETON */
+  .skeleton-feed { display: none; }
+  .skeleton-feed.visible { display: block; }
+  .skeleton-card {
+    background: var(--glass);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius);
+    padding: 18px;
+    margin-bottom: 10px;
+  }
+  .skeleton-line {
+    height: 12px; border-radius: 6px;
+    background: linear-gradient(90deg, var(--surface) 25%, rgba(255,255,255,0.07) 50%, var(--surface) 75%);
+    background-size: 200% 100%;
+    animation: skeletonPulse 1.4s ease infinite;
+    margin-bottom: 10px;
+  }
+  .skeleton-line.short { width: 40%; }
+  .skeleton-line.medium { width: 70%; }
+  .skeleton-line.long { width: 100%; }
+  @keyframes skeletonPulse { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+  .loading-status {
+    text-align: center; font-size: 12px; color: var(--text-muted);
+    margin: 8px 0 16px; min-height: 18px;
   }
 
   /* ==================== QUALITY ==================== */
-  .quality-section {
-    display: flex; align-items: center; gap: 16px;
-  }
+  .quality-section { display: flex; align-items: center; gap: 16px; }
   .quality-ring {
-    width: 60px; height: 60px;
+    width: 56px; height: 56px;
     border-radius: 50%;
     display: flex; align-items: center; justify-content: center;
-    font-size: 22px; font-weight: 700;
+    font-size: 20px; font-weight: 700;
     flex-shrink: 0;
     border: 2px solid var(--glass-border);
   }
@@ -402,27 +436,18 @@
   .ring-low { color: var(--red); border-color: var(--red); }
   .quality-info h3 { font-size: 13px; font-weight: 600; }
   .quality-info p { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
-  .quality-stat {
-    display: inline-block;
-    padding: 2px 8px;
-    border-radius: 6px;
-    font-size: 10px;
-    font-weight: 600;
-    margin-top: 4px;
-  }
+  .quality-stat { display: inline-block; padding: 2px 8px; border-radius: 6px; font-size: 10px; font-weight: 600; margin-top: 4px; }
   .stat-filtered { background: var(--red-bg); color: var(--red); }
 
   /* ==================== TRANSPARENCY ==================== */
-  .transparency-panel {
-    border-left: 2px solid var(--purple);
-  }
+  .transparency-panel { border-left: 2px solid var(--purple); }
   .tp-header {
     font-size: 10px; font-weight: 700;
     text-transform: uppercase; letter-spacing: 1px;
     color: var(--purple-bright); margin-bottom: 12px;
     display: flex; align-items: center; gap: 6px;
   }
-  .tp-header i { width: 14px; height: 14px; }
+  .tp-header i { width: 13px; height: 13px; }
   .tp-section { margin-bottom: 10px; }
   .tp-label { font-size: 10px; color: var(--text-muted); font-weight: 600; margin-bottom: 3px; text-transform: uppercase; letter-spacing: 0.5px; }
   .tp-value { font-size: 12px; color: var(--text-secondary); line-height: 1.5; }
@@ -432,10 +457,10 @@
 
   /* ==================== REFINE ==================== */
   .refine-header { font-size: 12px; font-weight: 600; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
-  .refine-header i { width: 14px; height: 14px; color: var(--purple-bright); }
+  .refine-header i { width: 13px; height: 13px; color: var(--purple-bright); }
   .refine-row { display: flex; gap: 8px; }
   .refine-input {
-    flex: 1;
+    flex: 1; min-width: 0;
     padding: 9px 12px;
     border: 1px solid var(--glass-border);
     border-radius: var(--radius-xs);
@@ -444,10 +469,11 @@
     font-family: inherit;
     font-size: 12px;
     outline: none;
+    -webkit-appearance: none;
   }
   .refine-input:focus { border-color: var(--purple); }
   .refine-btn {
-    padding: 9px 16px;
+    padding: 9px 14px;
     border-radius: var(--radius-xs);
     border: none;
     background: var(--purple-gradient);
@@ -456,6 +482,9 @@
     font-weight: 600;
     font-family: inherit;
     cursor: pointer;
+    white-space: nowrap;
+    flex-shrink: 0;
+    -webkit-tap-highlight-color: transparent;
   }
   .refine-status { font-size: 11px; color: var(--text-muted); margin-top: 6px; min-height: 16px; }
 
@@ -466,7 +495,7 @@
     border: 1px solid var(--glass-border);
     border-radius: var(--radius-sm);
     padding: 3px;
-    margin-bottom: 14px;
+    margin-bottom: 12px;
   }
   .tab-btn {
     flex: 1; padding: 9px;
@@ -477,12 +506,9 @@
     text-align: center;
     background: transparent;
     color: var(--text-muted);
+    -webkit-tap-highlight-color: transparent;
   }
-  .tab-btn.active {
-    background: var(--purple-gradient);
-    color: white;
-    box-shadow: 0 2px 10px rgba(79,70,229,0.2);
-  }
+  .tab-btn.active { background: var(--purple-gradient); color: white; box-shadow: 0 2px 10px rgba(79,70,229,0.2); }
 
   .feed { display: block; }
   .feed.hidden { display: none; }
@@ -494,102 +520,78 @@
     -webkit-backdrop-filter: blur(8px);
     border: 1px solid var(--glass-border);
     border-radius: var(--radius);
-    padding: 18px;
+    padding: 16px;
     margin-bottom: 10px;
     transition: all 0.2s;
   }
   .post-card:hover { border-color: var(--glass-border-hover); }
   .post-card.flagged { border-left: 2px solid var(--red); }
 
-  .post-top {
-    display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px;
-  }
-  .post-author { font-weight: 600; font-size: 13px; }
+  .post-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; gap: 8px; }
+  .post-top-left { min-width: 0; flex: 1; }
+  .post-author { font-weight: 600; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .post-handle { font-size: 11px; color: var(--text-muted); margin-top: 1px; }
   .relevance-badge {
-    padding: 3px 10px; border-radius: 8px;
-    font-size: 12px; font-weight: 700;
-    flex-shrink: 0;
+    padding: 3px 9px; border-radius: 8px;
+    font-size: 11px; font-weight: 700;
+    flex-shrink: 0; white-space: nowrap;
   }
   .rel-high { background: var(--green-bg); color: var(--green); }
   .rel-mid { background: var(--amber-bg); color: var(--amber); }
   .rel-low { background: var(--red-bg); color: var(--red); }
 
-  .post-tags { display: flex; gap: 4px; margin-bottom: 8px; }
-  .tag {
-    font-size: 9px; padding: 2px 8px; border-radius: 5px;
-    font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px;
-  }
+  .post-tags { display: flex; gap: 4px; margin-bottom: 8px; flex-wrap: wrap; }
+  .tag { font-size: 9px; padding: 2px 7px; border-radius: 5px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px; }
   .tag-toxic { background: var(--red-bg); color: var(--red); }
   .tag-sponsored { background: var(--amber-bg); color: var(--amber); }
   .tag-ragebait { background: rgba(249,115,22,0.08); color: #FB923C; }
   .tag-clean { background: var(--purple-glow); color: var(--purple-bright); }
 
-  .post-text {
-    font-size: 13px; color: var(--text);
-    line-height: 1.6; margin-bottom: 8px;
-    opacity: 0.8;
-  }
-  .post-image {
-    width: 100%; border-radius: 12px;
-    margin: 8px 0; max-height: 280px;
-    object-fit: cover;
-  }
+  .post-text { font-size: 13px; color: var(--text); line-height: 1.6; margin-bottom: 8px; opacity: 0.85; word-break: break-word; }
+  .post-image { width: 100%; border-radius: 12px; margin: 8px 0; max-height: 260px; object-fit: cover; }
   .post-reason {
-    font-size: 11px;
-    color: var(--purple-bright);
-    background: var(--purple-glow);
-    padding: 8px 12px;
-    border-radius: 10px;
-    margin-bottom: 10px;
-    line-height: 1.4;
+    font-size: 11px; color: var(--purple-bright);
+    background: var(--purple-glow); padding: 7px 11px;
+    border-radius: 9px; margin-bottom: 10px; line-height: 1.4;
     border-left: 2px solid var(--purple);
   }
-  .post-footer {
-    display: flex; justify-content: space-between; align-items: center;
-  }
-  .post-meta {
-    font-size: 11px; color: var(--text-muted);
-    display: flex; gap: 12px;
-  }
+  .post-footer { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px; }
+  .post-meta { font-size: 11px; color: var(--text-muted); display: flex; gap: 10px; flex-wrap: wrap; }
   .view-original {
     font-size: 11px; color: var(--purple-bright);
     text-decoration: none; font-weight: 500;
-    opacity: 0.6; transition: opacity 0.2s;
+    opacity: 0.7; transition: opacity 0.2s;
     display: flex; align-items: center; gap: 3px;
+    white-space: nowrap;
   }
   .view-original:hover { opacity: 1; }
-  .view-original i { width: 12px; height: 12px; }
+  .view-original i { width: 11px; height: 11px; }
 
-  .post-signals {
-    display: flex; gap: 6px; margin-top: 8px;
-  }
+  .post-signals { display: flex; gap: 6px; margin-top: 10px; }
   .signal-btn {
     background: none;
     border: 1px solid var(--glass-border);
     border-radius: 8px;
-    padding: 4px 10px;
+    padding: 5px 10px;
     cursor: pointer;
     font-size: 11px;
     color: var(--text-muted);
     font-family: inherit;
     transition: all 0.2s;
     display: flex; align-items: center; gap: 4px;
+    -webkit-tap-highlight-color: transparent;
   }
   .signal-btn:hover { background: var(--surface-hover); color: var(--text-secondary); }
   .signal-btn.sent { opacity: 0.2; pointer-events: none; }
   .signal-btn i { width: 12px; height: 12px; }
 
   /* ==================== EMPTY STATE ==================== */
-  .empty-state {
-    text-align: center; padding: 60px 20px;
-  }
+  .empty-state { text-align: center; padding: 50px 16px; }
   .empty-icon {
-    width: 56px; height: 56px; border-radius: 16px;
+    width: 52px; height: 52px; border-radius: 14px;
     background: var(--purple-glow); border: 1px solid var(--glass-border);
     display: flex; align-items: center; justify-content: center;
-    margin: 0 auto 16px;
-    color: var(--purple-bright);
+    margin: 0 auto 14px; color: var(--purple-bright);
   }
   .empty-icon i { width: 24px; height: 24px; }
   .empty-state h3 { font-size: 16px; font-weight: 600; margin-bottom: 4px; }
@@ -597,104 +599,110 @@
 
   /* ==================== TIMER MODAL ==================== */
   .modal-backdrop {
-    display: none;
-    position: fixed; inset: 0;
+    display: none; position: fixed; inset: 0;
     background: rgba(11,10,18,0.85);
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
-    z-index: 200;
-    align-items: center; justify-content: center;
+    backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+    z-index: 200; align-items: center; justify-content: center;
+    padding: 16px;
   }
   .modal-backdrop.show { display: flex; }
   .modal-content {
     background: var(--bg-subtle);
     border: 1px solid var(--glass-border);
     border-radius: var(--radius);
-    padding: 28px;
-    text-align: center;
-    max-width: 320px;
-    width: 90%;
+    padding: 24px; text-align: center;
+    max-width: 320px; width: 100%;
   }
   .modal-content h3 { font-size: 16px; margin-bottom: 4px; }
-  .modal-content p { font-size: 12px; color: var(--text-muted); margin-bottom: 18px; }
-  .timer-options { display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; margin-bottom: 14px; }
+  .modal-content p { font-size: 12px; color: var(--text-muted); margin-bottom: 16px; }
+  .timer-options { display: flex; gap: 6px; justify-content: center; flex-wrap: wrap; margin-bottom: 12px; }
   .timer-opt {
-    padding: 8px 18px; border-radius: 10px;
+    padding: 8px 16px; border-radius: 10px;
     background: var(--surface); border: 1px solid var(--glass-border);
     color: var(--text-secondary); font-size: 13px; font-weight: 500;
     font-family: inherit; cursor: pointer; transition: all 0.2s;
+    -webkit-tap-highlight-color: transparent;
   }
   .timer-opt:hover { border-color: var(--purple); color: var(--purple-bright); }
-  .timer-cancel {
-    background: none; border: none; color: var(--text-muted);
-    font-size: 12px; cursor: pointer; font-family: inherit;
-  }
+  .timer-cancel { background: none; border: none; color: var(--text-muted); font-size: 12px; cursor: pointer; font-family: inherit; }
 
-  /* TIMER NUDGE (gentle notification, not full overlay) */
+  /* TIMER NUDGE */
   .timer-nudge {
-    display: none;
-    position: fixed;
-    top: 50%; left: 50%;
-    transform: translate(-50%, -50%);
+    display: none; position: fixed;
+    top: 50%; left: 50%; transform: translate(-50%, -50%);
     z-index: 300;
     background: var(--bg-subtle);
     border: 1px solid var(--glass-border);
     border-radius: var(--radius);
-    padding: 32px;
-    text-align: center;
-    max-width: 360px;
-    width: 90%;
+    padding: 28px; text-align: center;
+    max-width: 340px; width: calc(100% - 32px);
     box-shadow: 0 24px 64px rgba(0,0,0,0.5);
   }
   .timer-nudge.show { display: block; }
-  .timer-nudge-backdrop {
-    display: none;
-    position: fixed; inset: 0; z-index: 299;
-    background: rgba(11,10,18,0.6);
-  }
+  .timer-nudge-backdrop { display: none; position: fixed; inset: 0; z-index: 299; background: rgba(11,10,18,0.6); }
   .timer-nudge-backdrop.show { display: block; }
-  .nudge-close {
-    position: absolute; top: 12px; right: 12px;
-    background: none; border: none;
-    color: var(--text-muted); cursor: pointer;
-  }
+  .nudge-close { position: absolute; top: 12px; right: 12px; background: none; border: none; color: var(--text-muted); cursor: pointer; }
   .nudge-close i { width: 18px; height: 18px; }
-  .timer-nudge h3 { font-size: 18px; font-weight: 600; margin-bottom: 6px; }
+  .timer-nudge h3 { font-size: 17px; font-weight: 600; margin-bottom: 6px; }
   .timer-nudge p { font-size: 13px; color: var(--text-secondary); line-height: 1.5; margin-bottom: 16px; }
-  .nudge-actions { display: flex; gap: 8px; justify-content: center; }
-  .nudge-btn-primary {
-    padding: 10px 24px; border-radius: var(--radius-xs);
-    background: var(--purple-gradient); border: none;
-    color: white; font-size: 13px; font-weight: 600;
-    font-family: inherit; cursor: pointer;
-  }
-  .nudge-btn-secondary {
-    padding: 10px 24px; border-radius: var(--radius-xs);
-    background: var(--surface); border: 1px solid var(--glass-border);
-    color: var(--text-secondary); font-size: 13px; font-weight: 500;
-    font-family: inherit; cursor: pointer;
-  }
+  .nudge-actions { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+  .nudge-btn-primary { padding: 10px 20px; border-radius: var(--radius-xs); background: var(--purple-gradient); border: none; color: white; font-size: 13px; font-weight: 600; font-family: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+  .nudge-btn-secondary { padding: 10px 20px; border-radius: var(--radius-xs); background: var(--surface); border: 1px solid var(--glass-border); color: var(--text-secondary); font-size: 13px; font-weight: 500; font-family: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent; }
 
   /* ==================== BG GLOW ==================== */
   .bg-glow {
-    position: fixed;
-    top: -150px; left: 50%; transform: translateX(-50%);
-    width: 500px; height: 500px;
+    position: fixed; top: -150px; left: 50%; transform: translateX(-50%);
+    width: 500px; height: 500px; border-radius: 50%;
     background: radial-gradient(circle, rgba(124,111,247,0.08) 0%, transparent 70%);
     pointer-events: none; z-index: 0;
   }
 
   /* ==================== RESPONSIVE ==================== */
-  @media (max-width: 600px) {
-    .welcome-title { font-size: 36px; }
-    .welcome-subtitle { font-size: 15px; }
-    .container { padding: 14px 12px 80px; }
-    .glass-card { padding: 18px; border-radius: 16px; }
-    .persona-row { grid-template-columns: repeat(3, 1fr); }
+  @media (max-width: 480px) {
+    .welcome-logo-mark { width: 64px; height: 64px; margin-bottom: 20px; }
+    .welcome-logo-mark svg { width: 64px; height: 64px; }
+    .welcome-btn { padding: 13px 28px; }
+
+    .container { padding: 12px 10px 80px; }
+    .glass-card { padding: 16px; border-radius: 16px; margin-bottom: 10px; }
+
+    /* 2x2 persona grid on small screens */
+    .persona-row { grid-template-columns: repeat(2, 1fr); gap: 6px; }
     .persona-desc { display: none; }
-    .mood-btn { padding: 6px 10px; font-size: 11px; }
+    .persona-name { font-size: 12px; }
+    .persona-icon i { width: 20px; height: 20px; }
+    .persona-card { padding: 12px 8px; }
+
+    .tone-row { gap: 4px; }
+    .tone-btn { padding: 5px 10px; font-size: 11px; }
+
+    .pref-input { font-size: 16px; /* prevent iOS zoom */ }
+    .refine-input { font-size: 16px; }
+
     .post-card { padding: 14px; border-radius: 16px; }
-    .nav { padding: 10px 14px; }
+    .post-author { font-size: 12px; }
+    .post-text { font-size: 12px; }
+    .post-image { max-height: 200px; }
+
+    .nav { padding: 8px 12px; }
+    .nav-logo { font-size: 16px; }
+    .timer-display { display: none; } /* hide timer text on very small screens, keep button */
+    .timer-set-btn { display: flex; }
+
+    .quality-ring { width: 48px; height: 48px; font-size: 17px; }
+
+    .modal-content { padding: 20px; }
+    .timer-options { gap: 5px; }
+    .timer-opt { padding: 7px 12px; font-size: 12px; }
+
+    .feed-tabs .tab-btn { font-size: 11px; padding: 8px; }
+
+    .section-title { font-size: 15px; }
+  }
+
+  @media (max-width: 360px) {
+    .persona-row { grid-template-columns: repeat(2, 1fr); }
+    .topics-row .topic-btn { font-size: 10px; padding: 4px 9px; }
   }
 </style>
 </head>
@@ -702,12 +710,16 @@
 
 <!-- ==================== WELCOME PAGE ==================== -->
 <div class="welcome-overlay" id="welcomeOverlay">
+  <canvas id="spaceCanvas"></canvas>
+  <div class="nebula-layer"></div>
   <div class="welcome-bg-orb orb-1"></div>
   <div class="welcome-bg-orb orb-2"></div>
   <div class="welcome-bg-orb orb-3"></div>
+  <div class="welcome-bg-orb orb-4"></div>
   <div class="welcome-content">
-    <div class="welcome-logo-mark">
-      <svg viewBox="0 0 80 80" fill="none">
+    <div class="logo-wrap" id="logoWrap">
+      <div class="logo-glow"></div>
+      <svg viewBox="0 0 130 130" fill="none">
         <defs>
           <linearGradient id="logoGrad" x1="0%" y1="0%" x2="100%" y2="100%">
             <stop offset="0%" stop-color="#4F46E5"/>
@@ -715,24 +727,22 @@
             <stop offset="100%" stop-color="#A78BFA"/>
           </linearGradient>
         </defs>
-        <circle cx="40" cy="40" r="35" class="logo-ring"/>
-        <circle cx="40" cy="40" r="10" class="logo-center"/>
-        <line x1="40" y1="2" x2="40" y2="14" stroke="url(#logoGrad)" stroke-width="2" stroke-linecap="round" opacity="0"><animate attributeName="opacity" from="0" to="0.6" dur="0.4s" begin="1.6s" fill="freeze"/></line>
-        <line x1="40" y1="66" x2="40" y2="78" stroke="url(#logoGrad)" stroke-width="2" stroke-linecap="round" opacity="0"><animate attributeName="opacity" from="0" to="0.6" dur="0.4s" begin="1.7s" fill="freeze"/></line>
-        <line x1="2" y1="40" x2="14" y2="40" stroke="url(#logoGrad)" stroke-width="2" stroke-linecap="round" opacity="0"><animate attributeName="opacity" from="0" to="0.6" dur="0.4s" begin="1.8s" fill="freeze"/></line>
-        <line x1="66" y1="40" x2="78" y2="40" stroke="url(#logoGrad)" stroke-width="2" stroke-linecap="round" opacity="0"><animate attributeName="opacity" from="0" to="0.6" dur="0.4s" begin="1.9s" fill="freeze"/></line>
+        <g class="orbit-r1"><ellipse cx="65" cy="65" rx="58" ry="18" stroke="#4F46E5" stroke-width="0.8" opacity="0.25"/><circle cx="123" cy="65" r="2.5" fill="#4F46E5" class="odot"/></g>
+        <g class="orbit-r2" style="transform:rotate(55deg);transform-origin:65px 65px"><ellipse cx="65" cy="65" rx="54" ry="15" stroke="#7C3AED" stroke-width="0.8" opacity="0.2"/><circle cx="119" cy="65" r="2.5" fill="#7C3AED" class="odot" style="animation-delay:0.4s"/></g>
+        <g class="orbit-r3" style="transform:rotate(115deg);transform-origin:65px 65px"><ellipse cx="65" cy="65" rx="50" ry="13" stroke="#A78BFA" stroke-width="0.8" opacity="0.15"/><circle cx="115" cy="65" r="2" fill="#A78BFA" class="odot" style="animation-delay:0.8s"/></g>
+        <g class="eye-group"><path d="M 18 65 Q 65 30 112 65 Q 65 100 18 65 Z" fill="rgba(124,111,247,0.05)" stroke="url(#logoGrad)" stroke-width="1.8" stroke-linejoin="round"/><g class="iris-group"><circle cx="65" cy="65" r="20" fill="none" stroke="#4F46E5" stroke-width="1.2" opacity="0.5"/><circle cx="65" cy="65" r="8" fill="url(#logoGrad)" class="pupil-main"/><circle cx="58" cy="58" r="3" fill="#C4B5FD" class="shine-dot"/></g></g>
       </svg>
     </div>
     <h1 class="welcome-title">Clarity</h1>
     <p class="welcome-subtitle">Your feed, your rules.</p>
+    <p class="welcome-tagline">Take back control of what you see online.</p>
     <button class="welcome-btn" onclick="dismissWelcome()">
       Let's get started
-      <i data-lucide="arrow-right" style="width:18px;height:18px;"></i>
+      <span class="btn-arrow">→</span>
     </button>
   </div>
 </div>
 
-<!-- BG -->
 <div class="bg-glow"></div>
 
 <!-- NAV -->
@@ -743,12 +753,13 @@
   </div>
   <div class="nav-right">
     <a href="/analytics" class="nav-link"><i data-lucide="bar-chart-2"></i> Stats</a>
+    <a href="/wrapped" class="nav-link"><i data-lucide="sparkles"></i> Wrapped</a>
     <div class="timer-display">
       <span class="timer-value" id="timerValue">--:--</span>
-      <button class="timer-set-btn" onclick="openTimerModal()">
-        <i data-lucide="clock" style="width:12px;height:12px;"></i> Timer
-      </button>
     </div>
+    <button class="timer-set-btn" onclick="openTimerModal()">
+      <i data-lucide="clock" style="width:11px;height:11px;"></i> Timer
+    </button>
   </div>
 </div>
 
@@ -772,7 +783,7 @@
 <div class="timer-nudge" id="timerNudge">
   <button class="nudge-close" onclick="closeNudge()"><i data-lucide="x"></i></button>
   <h3>Time for a breather</h3>
-  <p>You've been browsing for a while. Taking a short break can help you stay intentional with your time and energy.</p>
+  <p>You've been browsing for a while. Taking a short break helps you stay intentional.</p>
   <div class="nudge-actions">
     <button class="nudge-btn-secondary" onclick="extendTimer(5)">5 more minutes</button>
     <button class="nudge-btn-primary" onclick="closeNudge()">Got it</button>
@@ -781,89 +792,122 @@
 
 <div class="container">
 
-  <!-- INPUT -->
-  <form method="POST" class="glass-card">
-    <div class="section-title">Tell Clarity what you care about</div>
-    <p class="section-subtitle">Pick a profile, set your mood, or describe it yourself.</p>
+  <!-- INPUT FORM -->
+  <form method="POST" id="mainForm" class="glass-card" onsubmit="handleSubmit()">
 
+    <div class="section-title">Tell Clarity what you care about</div>
+    <p class="section-subtitle">Pick your intention and tone, then describe or search.</p>
+
+    <!-- INTENTION / PERSONAS -->
+    <div class="intent-label">What brings you here?</div>
     <div class="persona-row">
       {% for key, p in personas.items() %}
-      <button type="button" class="persona-card" onclick="applyPersona('{{ key }}')">
+      <button type="button" class="persona-card {% if persona_key == key %}selected{% endif %}"
+              onclick="selectPersona('{{ key }}', this)">
         <div class="persona-icon"><i data-lucide="{{ p.icon }}"></i></div>
         <span class="persona-name">{{ p.label }}</span>
         <span class="persona-desc">{{ p.description }}</span>
       </button>
       {% endfor %}
     </div>
+    <input type="hidden" name="persona" id="personaInput" value="{{ persona_key }}">
 
-    <div class="mood-row">
-      <button type="button" class="mood-btn {% if mood == 'relax' %}selected{% endif %}" onclick="selectMood(this, 'relax')">
-        <i data-lucide="leaf"></i> Relax
+    <!-- TONES -->
+    <div class="intent-label">Content tone (pick any)</div>
+    <div class="tone-row">
+      {% for key, t in tones.items() %}
+      <button type="button" class="tone-btn {% if key in selected_tones %}selected{% endif %}"
+              onclick="toggleTone('{{ key }}', this)">
+        <i data-lucide="{{ t.icon }}"></i> {{ t.label }}
       </button>
-      <button type="button" class="mood-btn {% if mood == 'learn' %}selected{% endif %}" onclick="selectMood(this, 'learn')">
-        <i data-lucide="brain"></i> Learn
-      </button>
-      <button type="button" class="mood-btn {% if mood == 'laugh' %}selected{% endif %}" onclick="selectMood(this, 'laugh')">
-        <i data-lucide="smile"></i> Laugh
-      </button>
-      <button type="button" class="mood-btn {% if mood == 'explore' %}selected{% endif %}" onclick="selectMood(this, 'explore')">
-        <i data-lucide="telescope"></i> Explore
-      </button>
+      {% endfor %}
+    </div>
+    <div id="toneInputs">
+      {% for key in selected_tones %}
+      <input type="hidden" name="tones" value="{{ key }}">
+      {% endfor %}
     </div>
 
-    <div class="preset-row">
-      <button type="button" class="preset-btn" onclick="applyPreset('animals')">Animals</button>
-      <button type="button" class="preset-btn" onclick="applyPreset('foodie')">Foodie</button>
-      <button type="button" class="preset-btn" onclick="applyPreset('science')">Science</button>
-      <button type="button" class="preset-btn" onclick="applyPreset('creative')">Creative</button>
-      <button type="button" class="preset-btn" onclick="applyPreset('fitness')">Fitness</button>
-    </div>
-
-    <textarea class="pref-input" name="preference" id="prefInput" placeholder="e.g. I love cute animals, baking tips, and space science. Nothing depressing or political.">{{ preference }}</textarea>
-    <input type="hidden" name="mood" id="moodInput" value="{{ mood }}">
-
-    {% if filter_chips %}
-    <div class="chips-row">
-      {% for chip in filter_chips %}
-      <label class="chip">
-        <input type="checkbox" name="active_chips" value="{{ chip }}" style="display:none" {% if chip in active_chips %}checked{% endif %}
-          onchange="this.parentElement.classList.toggle('active', this.checked)">
-        {{ chip }}
+    <!-- TOPICS -->
+    <div class="intent-label">Topics (optional)</div>
+    <div class="topics-row">
+      {% for key in presets %}
+      <label class="topic-btn {% if key in selected_topics %}selected{% endif %}">
+        <input type="checkbox" name="topics" value="{{ key }}"
+               {% if key in selected_topics %}checked{% endif %}
+               onchange="this.parentElement.classList.toggle('selected', this.checked)">
+        {{ key|capitalize }}
       </label>
       {% endfor %}
     </div>
+
+    <!-- SEARCH / PREFERENCE INPUT -->
+    <textarea class="pref-input" name="preference" id="prefInput"
+              placeholder="Describe what you want — or leave blank and let your selections guide the feed"
+              >{{ preference }}</textarea>
+
+    <!-- AI CHIPS — load async on blur -->
+    <div class="chips-section" id="chipsSection" style="display:none;">
+      <div class="chips-label">
+        Smart filters
+        <span class="chips-loading" id="chipsSpinner" style="display:none;"></span>
+      </div>
+      <div class="chips-row" id="chipsRow">
+        {% for chip in filter_chips %}
+        <label class="chip {% if chip in active_chips %}active{% endif %}">
+          <input type="checkbox" name="active_chips" value="{{ chip }}" style="display:none"
+                 {% if chip in active_chips %}checked{% endif %}
+                 onchange="this.parentElement.classList.toggle('active', this.checked)">
+          {{ chip }}
+        </label>
+        {% endfor %}
+      </div>
+    </div>
+    {% if filter_chips %}
+    <script>document.getElementById('chipsSection').style.display='block';</script>
     {% endif %}
 
+    <!-- FILTERS -->
     <div class="filters-row">
       <label class="filter-item">
-        <input type="checkbox" name="filter_toxic" {{ "checked" if filters.toxic }}>
-        Hide toxic
+        <input type="checkbox" name="filter_toxic" {{ "checked" if filters.toxic }}> Hide toxic
       </label>
       <label class="filter-item">
-        <input type="checkbox" name="filter_sponsored" {{ "checked" if filters.sponsored }}>
-        Hide ads
+        <input type="checkbox" name="filter_sponsored" {{ "checked" if filters.sponsored }}> Hide ads
       </label>
       <label class="filter-item">
-        <input type="checkbox" name="filter_ragebait" {{ "checked" if filters.ragebait }}>
-        Hide rage-bait
+        <input type="checkbox" name="filter_ragebait" {{ "checked" if filters.ragebait }}> Hide rage-bait
       </label>
     </div>
 
-    <button type="submit" class="btn-submit">Re-rank my feed</button>
-    <p class="loading-note">Clarity reads and scores every post — takes a few seconds</p>
+    <button type="submit" class="btn-submit" id="submitBtn">Re-rank my feed</button>
+    <div class="loading-status" id="loadingStatus"></div>
   </form>
+
+  <!-- LOADING SKELETON -->
+  <div class="skeleton-feed" id="skeletonFeed">
+    {% for _ in range(4) %}
+    <div class="skeleton-card">
+      <div class="skeleton-line short"></div>
+      <div class="skeleton-line long"></div>
+      <div class="skeleton-line medium"></div>
+      <div class="skeleton-line long"></div>
+      <div class="skeleton-line short"></div>
+    </div>
+    {% endfor %}
+  </div>
 
   {% if scored_posts %}
 
   <div class="glass-card quality-section">
-    <div class="quality-ring {{ 'ring-high' if quality_score > 60 }}{{ 'ring-mid' if quality_score > 30 and quality_score <= 60 }}{{ 'ring-low' if quality_score <= 30 }}">
+    <div class="quality-ring {{ 'ring-high' if quality_score > 60 else ('ring-mid' if quality_score > 30 else 'ring-low') }}">
       {{ quality_score }}
     </div>
     <div class="quality-info">
       <h3>Feed Quality Score</h3>
       <p>How well your feed matches what you asked for</p>
       {% if filtered_count > 0 %}
-      <span class="quality-stat stat-filtered">{{ filtered_count }} posts filtered out</span>
+      <span class="quality-stat stat-filtered">{{ filtered_count }} posts filtered</span>
       {% endif %}
     </div>
   </div>
@@ -897,7 +941,7 @@
   <div class="glass-card">
     <div class="refine-header"><i data-lucide="pen-line"></i> Adjust your algorithm</div>
     <div class="refine-row">
-      <input class="refine-input" id="refineInput" placeholder="e.g. More memes, less news articles">
+      <input class="refine-input" id="refineInput" placeholder="e.g. Less political content, more science">
       <button class="refine-btn" onclick="refineAlgorithm()">Update</button>
     </div>
     <div class="refine-status" id="refineStatus"></div>
@@ -913,11 +957,11 @@
     {% if not post.hidden %}
     <div class="post-card {{ 'flagged' if post.is_toxic or post.is_ragebait }}">
       <div class="post-top">
-        <div>
+        <div class="post-top-left">
           <div class="post-author">{{ post.author }}</div>
           <div class="post-handle">{{ post.handle }}</div>
         </div>
-        <span class="relevance-badge {{ 'rel-high' if post.relevance > 70 }}{{ 'rel-mid' if post.relevance > 30 and post.relevance <= 70 }}{{ 'rel-low' if post.relevance <= 30 }}">{{ post.relevance }}%</span>
+        <span class="relevance-badge {{ 'rel-high' if post.relevance > 70 else ('rel-mid' if post.relevance > 30 else 'rel-low') }}">{{ post.relevance }}%</span>
       </div>
       <div class="post-tags">
         {% if post.is_toxic %}<span class="tag tag-toxic">Toxic</span>{% endif %}
@@ -939,7 +983,7 @@
         </div>
         {% if post.url %}
         <a href="{{ post.url }}" target="_blank" class="view-original">
-          View original <i data-lucide="external-link"></i>
+          View <i data-lucide="external-link"></i>
         </a>
         {% endif %}
       </div>
@@ -960,7 +1004,7 @@
     {% for post in original_posts %}
     <div class="post-card">
       <div class="post-top">
-        <div>
+        <div class="post-top-left">
           <div class="post-author">{{ post.author }}</div>
           <div class="post-handle">{{ post.handle }}</div>
         </div>
@@ -976,7 +1020,7 @@
         </div>
         {% if post.url %}
         <a href="{{ post.url }}" target="_blank" class="view-original">
-          View original <i data-lucide="external-link"></i>
+          View <i data-lucide="external-link"></i>
         </a>
         {% endif %}
       </div>
@@ -988,46 +1032,127 @@
   <div class="empty-state">
     <div class="empty-icon"><i data-lucide="target"></i></div>
     <h3>Your feed is waiting</h3>
-    <p>Tell Clarity what you care about and it will build a feed just for you.</p>
+    <p>Pick your intention and describe what you care about.</p>
   </div>
   {% endif %}
 
 </div>
 
 <script>
-// Init Lucide icons
 lucide.createIcons();
 
-// Welcome
+// ==================== WELCOME ====================
 function dismissWelcome() {
-  const el = document.getElementById('welcomeOverlay');
-  el.classList.add('leaving');
-  setTimeout(() => el.classList.add('gone'), 600);
+  const overlay = document.getElementById('welcomeOverlay');
+  overlay.classList.add('zooming');
+  setTimeout(() => overlay.classList.add('gone'), 1500);
   sessionStorage.setItem('clarity_welcomed', '1');
 }
 if (sessionStorage.getItem('clarity_welcomed')) {
   document.getElementById('welcomeOverlay').classList.add('gone');
 }
 
-// Presets & Personas
-const PRESETS = {{ presets | tojson }};
-const PERSONAS = {{ personas | tojson }};
+// ==================== SPACE PARTICLES ====================
+(function() {
+  const canvas = document.getElementById('spaceCanvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  let W, H;
+  const stars = []; const shooters = [];
+  function resize() { W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight; }
+  resize(); window.addEventListener('resize', resize);
+  class Star {
+    constructor() { this.x=Math.random()*W; this.y=Math.random()*H; this.r=Math.random()*1.2+0.3; this.alpha=Math.random()*0.6+0.1; this.pulse=Math.random()*Math.PI*2; this.ps=Math.random()*0.015+0.003; this.vx=(Math.random()-0.5)*0.08; this.vy=(Math.random()-0.5)*0.08; }
+    update() { this.x+=this.vx; this.y+=this.vy; this.pulse+=this.ps; if(this.x<-5)this.x=W+5; if(this.x>W+5)this.x=-5; if(this.y<-5)this.y=H+5; if(this.y>H+5)this.y=-5; }
+    draw() { const a=this.alpha+Math.sin(this.pulse)*0.15; ctx.beginPath(); ctx.arc(this.x,this.y,this.r,0,Math.PI*2); ctx.fillStyle=`rgba(210,200,255,${Math.max(0.02,a)})`; ctx.fill(); }
+  }
+  class Shooter {
+    constructor() { this.reset(); }
+    reset() { this.x=Math.random()*W; this.y=Math.random()*H*0.3; this.len=Math.random()*60+30; this.speed=Math.random()*6+4; this.angle=(Math.random()*0.4+0.2)*Math.PI; this.alpha=1; this.life=0; this.maxLife=Math.random()*40+20; }
+    update() { this.x+=Math.cos(this.angle)*this.speed; this.y+=Math.sin(this.angle)*this.speed; this.life++; this.alpha=1-(this.life/this.maxLife); if(this.life>=this.maxLife||this.x>W+50||this.y>H+50){this.reset();this.life=-Math.random()*300;} }
+    draw() { if(this.life<0||this.alpha<=0)return; const tx=this.x-Math.cos(this.angle)*this.len,ty=this.y-Math.sin(this.angle)*this.len; const g=ctx.createLinearGradient(tx,ty,this.x,this.y); g.addColorStop(0,`rgba(167,139,250,0)`); g.addColorStop(1,`rgba(167,139,250,${this.alpha*0.6})`); ctx.beginPath(); ctx.moveTo(tx,ty); ctx.lineTo(this.x,this.y); ctx.strokeStyle=g; ctx.lineWidth=1.5; ctx.stroke(); ctx.beginPath(); ctx.arc(this.x,this.y,1.5,0,Math.PI*2); ctx.fillStyle=`rgba(255,255,255,${this.alpha*0.8})`; ctx.fill(); }
+  }
+  for(let i=0;i<200;i++) stars.push(new Star());
+  for(let i=0;i<3;i++){const s=new Shooter();s.life=-Math.random()*200;shooters.push(s);}
+  function drawConn() { for(let i=0;i<stars.length;i++) for(let j=i+1;j<stars.length;j++){const dx=stars[i].x-stars[j].x,dy=stars[i].y-stars[j].y,d=dx*dx+dy*dy; if(d<8000){ctx.beginPath();ctx.moveTo(stars[i].x,stars[i].y);ctx.lineTo(stars[j].x,stars[j].y);ctx.strokeStyle=`rgba(124,111,247,${0.04*(1-d/8000)})`;ctx.lineWidth=0.4;ctx.stroke();}} }
+  let animId;
+  function animate() { ctx.clearRect(0,0,W,H); stars.forEach(s=>{s.update();s.draw()}); drawConn(); shooters.forEach(s=>{s.update();s.draw()}); animId=requestAnimationFrame(animate); }
+  animate();
+  const obs=new MutationObserver(()=>{ if(document.getElementById('welcomeOverlay').classList.contains('gone')){cancelAnimationFrame(animId);obs.disconnect();} });
+  obs.observe(document.getElementById('welcomeOverlay'),{attributes:true});
+})();
 
-function applyPreset(key) { document.getElementById('prefInput').value = PRESETS[key]; }
-function applyPersona(key) {
-  const p = PERSONAS[key];
-  if (!p) return;
-  document.getElementById('prefInput').value = p.preference;
+// ==================== PERSONA SELECTION ====================
+const PERSONAS_DATA = {{ personas | tojson }};
+
+function selectPersona(key, btn) {
   document.querySelectorAll('.persona-card').forEach(c => c.classList.remove('selected'));
-  event.currentTarget.classList.add('selected');
-}
-function selectMood(btn, mood) {
-  document.querySelectorAll('.mood-btn').forEach(b => b.classList.remove('selected'));
   btn.classList.add('selected');
-  document.getElementById('moodInput').value = mood;
+  document.getElementById('personaInput').value = key;
 }
 
-// Tabs
+// ==================== TONE SELECTION (multi-select) ====================
+const activeTones = new Set({{ selected_tones | tojson }});
+
+function toggleTone(key, btn) {
+  if (activeTones.has(key)) {
+    activeTones.delete(key);
+    btn.classList.remove('selected');
+  } else {
+    activeTones.add(key);
+    btn.classList.add('selected');
+  }
+  // Rebuild hidden inputs
+  const container = document.getElementById('toneInputs');
+  container.innerHTML = '';
+  activeTones.forEach(k => {
+    const inp = document.createElement('input');
+    inp.type = 'hidden'; inp.name = 'tones'; inp.value = k;
+    container.appendChild(inp);
+  });
+}
+
+// ==================== ASYNC CHIP GENERATION ====================
+let chipDebounce = null;
+const prefInput = document.getElementById('prefInput');
+
+prefInput.addEventListener('blur', () => {
+  const val = prefInput.value.trim();
+  if (val.length < 5) return;
+  clearTimeout(chipDebounce);
+  chipDebounce = setTimeout(() => loadChips(val), 300);
+});
+
+async function loadChips(preference) {
+  const section = document.getElementById('chipsSection');
+  const spinner = document.getElementById('chipsSpinner');
+  const row = document.getElementById('chipsRow');
+  section.style.display = 'block';
+  spinner.style.display = 'inline-block';
+  row.style.opacity = '0.4';
+  try {
+    const res = await fetch('/generate_chips', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ preference })
+    });
+    const data = await res.json();
+    if (data.chips && data.chips.length > 0) {
+      row.innerHTML = data.chips.map(chip =>
+        `<label class="chip"><input type="checkbox" name="active_chips" value="${chip}" style="display:none"
+          onchange="this.parentElement.classList.toggle('active',this.checked)">${chip}</label>`
+      ).join('');
+      lucide.createIcons();
+    }
+  } catch(e) {
+    console.error('[chips]', e);
+  } finally {
+    spinner.style.display = 'none';
+    row.style.opacity = '1';
+  }
+}
+
+// ==================== TABS ====================
 function showTab(tab) {
   document.getElementById('reranked').classList.toggle('hidden', tab !== 'reranked');
   document.getElementById('original').classList.toggle('hidden', tab !== 'original');
@@ -1036,47 +1161,77 @@ function showTab(tab) {
   });
 }
 
-// Timer
+// ==================== TIMER (persisted via end-timestamp) ====================
 let timerInterval = null;
 let timerSeconds = 0;
+
 function openTimerModal() { document.getElementById('timerModal').classList.add('show'); }
 function closeTimerModal() { document.getElementById('timerModal').classList.remove('show'); }
+
 function selectTimer(minutes) {
   timerSeconds = minutes * 60;
+  sessionStorage.setItem('clarity_timer_end', Date.now() + (timerSeconds * 1000));
   closeTimerModal();
   startTimer();
 }
+
 function startTimer() {
   if (timerInterval) clearInterval(timerInterval);
   updateTimerDisplay();
   timerInterval = setInterval(() => {
-    timerSeconds--;
+    const savedEnd = sessionStorage.getItem('clarity_timer_end');
+    if (savedEnd) {
+      timerSeconds = Math.floor((parseInt(savedEnd) - Date.now()) / 1000);
+    } else {
+      timerSeconds--;
+    }
     updateTimerDisplay();
     if (timerSeconds <= 0) {
       clearInterval(timerInterval);
+      sessionStorage.removeItem('clarity_timer_end');
       document.getElementById('timerNudge').classList.add('show');
       document.getElementById('nudgeBackdrop').classList.add('show');
     }
   }, 1000);
 }
+
 function updateTimerDisplay() {
-  const m = Math.floor(timerSeconds / 60);
-  const s = timerSeconds % 60;
+  const m = Math.floor(Math.max(timerSeconds, 0) / 60);
+  const s = Math.max(timerSeconds, 0) % 60;
   document.getElementById('timerValue').textContent = m + ':' + String(s).padStart(2, '0');
 }
+
 function closeNudge() {
   document.getElementById('timerNudge').classList.remove('show');
   document.getElementById('nudgeBackdrop').classList.remove('show');
   document.getElementById('timerValue').textContent = '--:--';
 }
+
 function extendTimer(minutes) {
   timerSeconds = minutes * 60;
+  sessionStorage.setItem('clarity_timer_end', Date.now() + (timerSeconds * 1000));
   document.getElementById('timerNudge').classList.remove('show');
   document.getElementById('nudgeBackdrop').classList.remove('show');
   startTimer();
 }
 
-// Signals
+// Restore timer on page load
+(function restoreTimer() {
+  const savedEnd = sessionStorage.getItem('clarity_timer_end');
+  if (savedEnd) {
+    const remaining = Math.floor((parseInt(savedEnd) - Date.now()) / 1000);
+    if (remaining > 0) {
+      timerSeconds = remaining;
+      startTimer();
+    } else {
+      sessionStorage.removeItem('clarity_timer_end');
+      document.getElementById('timerNudge').classList.add('show');
+      document.getElementById('nudgeBackdrop').classList.add('show');
+    }
+  }
+})();
+
+// ==================== SIGNALS ====================
 function getOrCreateSession() {
   let sid = document.cookie.match(/clarity_session=([^;]+)/)?.[1];
   if (!sid) {
@@ -1085,6 +1240,7 @@ function getOrCreateSession() {
   }
   return sid;
 }
+
 async function sendSignal(container, signal, weight, btn) {
   btn.classList.add('sent');
   try {
@@ -1103,7 +1259,7 @@ async function sendSignal(container, signal, weight, btn) {
   }
 }
 
-// Refine
+// ==================== REFINE ====================
 async function refineAlgorithm() {
   const message = document.getElementById('refineInput').value.trim();
   if (!message) return;
@@ -1123,7 +1279,7 @@ async function refineAlgorithm() {
     if (data.new_preference) {
       document.getElementById('prefInput').value = data.new_preference;
       document.getElementById('refineInput').value = '';
-      status.textContent = 'Algorithm updated — hit "Re-rank my feed" to see new results.';
+      status.textContent = '✓ Algorithm updated — hit "Re-rank my feed" to see new results.';
       status.style.color = 'var(--green)';
     } else {
       status.textContent = 'Something went wrong. Try again.';
@@ -1133,8 +1289,40 @@ async function refineAlgorithm() {
   }
 }
 
-// Re-init icons after page load
-setTimeout(() => lucide.createIcons(), 100);
+// ==================== LOADING STATE ====================
+const loadingMessages = [
+  'Fetching posts from Reddit…',
+  'Reading content with AI…',
+  'Scoring posts against your preferences…',
+  'Re-ranking your feed…',
+  'Almost there…',
+];
+
+function handleSubmit() {
+  const btn = document.getElementById('submitBtn');
+  const skeleton = document.getElementById('skeletonFeed');
+  const status = document.getElementById('loadingStatus');
+  btn.classList.add('loading');
+  btn.textContent = 'Building your feed…';
+  skeleton.classList.add('visible');
+  let i = 0;
+  status.textContent = loadingMessages[0];
+  const msgInterval = setInterval(() => {
+    i = (i + 1) % loadingMessages.length;
+    status.textContent = loadingMessages[i];
+  }, 3000);
+  // Store interval in sessionStorage so we know we were loading
+  sessionStorage.setItem('clarity_was_loading', '1');
+}
+
+// Clear loading state if we came back from a submit
+if (sessionStorage.getItem('clarity_was_loading')) {
+  sessionStorage.removeItem('clarity_was_loading');
+  document.getElementById('skeletonFeed').classList.remove('visible');
+}
+
+// Re-init icons after any dynamic content
+setTimeout(() => lucide.createIcons(), 150);
 </script>
 
 </body>
