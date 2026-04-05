@@ -446,16 +446,69 @@
   .tp-header {
     font-size: 10px; font-weight: 700;
     text-transform: uppercase; letter-spacing: 1px;
-    color: var(--purple-bright); margin-bottom: 12px;
+    color: var(--purple-bright); margin-bottom: 14px;
     display: flex; align-items: center; gap: 6px;
   }
   .tp-header i { width: 13px; height: 13px; }
-  .tp-section { margin-bottom: 10px; }
-  .tp-label { font-size: 10px; color: var(--text-muted); font-weight: 600; margin-bottom: 3px; text-transform: uppercase; letter-spacing: 0.5px; }
-  .tp-value { font-size: 12px; color: var(--text-secondary); line-height: 1.5; }
-  .tp-bullets { list-style: none; padding: 0; margin: 0; }
-  .tp-bullets li { font-size: 12px; color: var(--text-secondary); padding: 2px 0; }
-  .tp-bullets li::before { content: "→ "; color: var(--purple-bright); }
+  .tp-section { margin-bottom: 14px; }
+  .tp-section:last-child { margin-bottom: 0; }
+  .tp-label {
+    font-size: 10px; color: var(--text-muted); font-weight: 600;
+    margin-bottom: 5px; text-transform: uppercase; letter-spacing: 0.5px;
+  }
+  .tp-value { font-size: 12px; color: var(--text-secondary); line-height: 1.6; }
+
+  /* understood sentence — slightly larger, higher contrast */
+  .tp-understood {
+    font-size: 13px; color: var(--text); line-height: 1.6;
+    padding: 10px 12px;
+    background: var(--purple-glow);
+    border-radius: var(--radius-xs);
+    border-left: 2px solid var(--purple);
+  }
+
+  /* source pills */
+  .tp-pills { display: flex; flex-wrap: wrap; gap: 5px; }
+  .tp-pill {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 4px 10px; border-radius: 20px;
+    font-size: 11px; font-weight: 500;
+    background: var(--glass); border: 1px solid var(--glass-border);
+    color: var(--text-secondary);
+  }
+  .tp-pill-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--purple-bright); flex-shrink: 0; }
+
+  /* score distribution bar */
+  .tp-dist-bar {
+    display: flex; height: 10px; border-radius: 5px; overflow: hidden; gap: 2px;
+    margin-bottom: 6px;
+  }
+  .tp-dist-high { background: var(--green); border-radius: 5px; transition: width 0.8s ease; }
+  .tp-dist-mid  { background: var(--amber); border-radius: 5px; transition: width 0.8s ease; }
+  .tp-dist-low  { background: var(--red);   border-radius: 5px; transition: width 0.8s ease; }
+  .tp-dist-labels { display: flex; gap: 12px; flex-wrap: wrap; }
+  .tp-dist-lbl { font-size: 10px; color: var(--text-muted); display: flex; align-items: center; gap: 4px; }
+  .tp-dist-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+
+  /* behaviour indicator */
+  .tp-behaviour {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 5px 10px; border-radius: 8px;
+    background: var(--glass); border: 1px solid var(--glass-border);
+    font-size: 11px; color: var(--text-muted);
+  }
+  .tp-behaviour i { width: 12px; height: 12px; color: var(--purple-bright); }
+
+  /* filter summary */
+  .tp-filter-chips { display: flex; gap: 5px; flex-wrap: wrap; }
+  .tp-filter-chip {
+    padding: 3px 9px; border-radius: 6px;
+    font-size: 11px; font-weight: 600;
+  }
+  .tp-filter-chip.toxic    { background: var(--red-bg);   color: var(--red); }
+  .tp-filter-chip.ragebait { background: rgba(249,115,22,0.08); color: #FB923C; }
+  .tp-filter-chip.sponsored{ background: var(--amber-bg); color: var(--amber); }
+  .tp-filter-chip.none     { background: var(--green-bg); color: var(--green); }
 
   /* ==================== REFINE ==================== */
   .refine-header { font-size: 12px; font-weight: 600; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
@@ -926,27 +979,77 @@
 
   {% if transparency %}
   <div class="glass-card transparency-panel">
-    <div class="tp-header"><i data-lucide="settings"></i> How your algorithm worked</div>
+    <div class="tp-header"><i data-lucide="eye"></i> Why you're seeing this feed</div>
+
+    {# 1 — What Clarity understood #}
     {% if transparency.understood %}
     <div class="tp-section">
-      <div class="tp-label">How I read your preference</div>
-      <div class="tp-value">{{ transparency.understood }}</div>
+      <div class="tp-label">What Clarity understood</div>
+      <div class="tp-understood">{{ transparency.understood }}</div>
     </div>
     {% endif %}
-    {% if transparency.prioritised %}
+
+    {# 2 — Communities searched #}
+    {% if transparency.subreddits %}
     <div class="tp-section">
-      <div class="tp-label">What I prioritised</div>
-      <ul class="tp-bullets">
-        {% for item in transparency.prioritised %}<li>{{ item }}</li>{% endfor %}
-      </ul>
+      <div class="tp-label">Communities searched</div>
+      <div class="tp-pills">
+        {% for sub in transparency.subreddits %}
+        <span class="tp-pill"><span class="tp-pill-dot"></span>r/{{ sub }}</span>
+        {% endfor %}
+      </div>
     </div>
     {% endif %}
-    {% if transparency.filtered_out %}
+
+    {# 3 — Score distribution: how much content matched well #}
+    {% set total_scored = transparency.buckets.high + transparency.buckets.mid + transparency.buckets.low %}
+    {% if total_scored > 0 %}
     <div class="tp-section">
-      <div class="tp-label">What I filtered</div>
-      <div class="tp-value">{{ transparency.filtered_out }}</div>
+      <div class="tp-label">How well posts matched your request</div>
+      {% set pct_high = (transparency.buckets.high / total_scored * 100) | round | int %}
+      {% set pct_mid  = (transparency.buckets.mid  / total_scored * 100) | round | int %}
+      {% set pct_low  = (100 - pct_high - pct_mid) %}
+      <div class="tp-dist-bar">
+        <div class="tp-dist-high" style="width:{{ pct_high }}%"></div>
+        <div class="tp-dist-mid"  style="width:{{ pct_mid }}%"></div>
+        <div class="tp-dist-low"  style="width:{{ pct_low }}%"></div>
+      </div>
+      <div class="tp-dist-labels">
+        <span class="tp-dist-lbl"><span class="tp-dist-dot" style="background:var(--green)"></span>{{ pct_high }}% strong match</span>
+        <span class="tp-dist-lbl"><span class="tp-dist-dot" style="background:var(--amber)"></span>{{ pct_mid }}% partial</span>
+        <span class="tp-dist-lbl"><span class="tp-dist-dot" style="background:var(--red)"></span>{{ pct_low }}% low relevance</span>
+      </div>
     </div>
     {% endif %}
+
+    {# 4 — What was filtered out — only render if something was actually removed #}
+    {% set total_filtered_detail = transparency.filter_breakdown.toxic + transparency.filter_breakdown.sponsored + transparency.filter_breakdown.ragebait %}
+    <div class="tp-section">
+      <div class="tp-label">Content removed before ranking</div>
+      {% if total_filtered_detail > 0 %}
+      <div class="tp-filter-chips">
+        {% if transparency.filter_breakdown.toxic > 0 %}
+        <span class="tp-filter-chip toxic">{{ transparency.filter_breakdown.toxic }} toxic</span>
+        {% endif %}
+        {% if transparency.filter_breakdown.ragebait > 0 %}
+        <span class="tp-filter-chip ragebait">{{ transparency.filter_breakdown.ragebait }} rage-bait</span>
+        {% endif %}
+        {% if transparency.filter_breakdown.sponsored > 0 %}
+        <span class="tp-filter-chip sponsored">{{ transparency.filter_breakdown.sponsored }} ads</span>
+        {% endif %}
+      </div>
+      {% else %}
+      <span class="tp-filter-chip none">Nothing removed — feed is clean</span>
+      {% endif %}
+    </div>
+
+    {# 5 — Behaviour signal — only show if past interactions were used #}
+    {% if transparency.behaviour_used %}
+    <div class="tp-section">
+      <span class="tp-behaviour"><i data-lucide="history"></i> Your past likes shaped 20% of this ranking</span>
+    </div>
+    {% endif %}
+
   </div>
   {% endif %}
 

@@ -1,7 +1,5 @@
-
 import requests
 import time
-import random
 
 
 def get_posts_from_subreddit(subreddit: str, limit: int = 25, sort: str = "top", time_filter: str = "week", min_upvotes: int = -1) -> list[dict]:
@@ -10,11 +8,11 @@ def get_posts_from_subreddit(subreddit: str, limit: int = 25, sort: str = "top",
     params = {"limit": limit, "t": time_filter}
 
     try:
-        time.sleep(random.uniform(0.1, 0.5))
-        response = requests.get(url, headers=headers, params=params, timeout=5)
+        response = requests.get(url, headers=headers, params=params, timeout=6)
         if response.status_code == 429:
-            time.sleep(2)
-            response = requests.get(url, headers=headers, params=params, timeout=5)
+            print(f"[feed] 429 for r/{subreddit} — backing off 3s")
+            time.sleep(3)
+            response = requests.get(url, headers=headers, params=params, timeout=6)
     except requests.exceptions.RequestException as e:
         print(f"[feed] Request failed for r/{subreddit}: {e}")
         return []
@@ -81,11 +79,11 @@ def search_reddit(query: str, limit: int = 10) -> list[dict]:
     params = {"q": query, "limit": limit, "sort": "relevance", "t": "week"}
 
     try:
-        time.sleep(random.uniform(0.1, 0.5))
-        response = requests.get(url, headers=headers, params=params, timeout=5)
+        response = requests.get(url, headers=headers, params=params, timeout=6)
         if response.status_code == 429:
-            time.sleep(2)
-            response = requests.get(url, headers=headers, params=params, timeout=5)
+            print(f"[feed] 429 on search '{query}' — backing off 3s")
+            time.sleep(3)
+            response = requests.get(url, headers=headers, params=params, timeout=6)
     except requests.exceptions.RequestException as e:
         print(f"[feed] Search failed for '{query}': {e}")
         return []

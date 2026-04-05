@@ -1,8 +1,8 @@
-dddfrom flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from feed import get_posts_from_subreddit, validate_subreddit, deduplicate_posts, search_reddit
 from scorer import score_posts, generate_filter_chips
-from cache import get_cached, set_cached
+from cache import get_cached, set_cached, clear_cache
 import cohere
 import os
 import json
@@ -16,13 +16,6 @@ co = cohere.ClientV2(os.getenv("COHERE_API_KEY"))
 app = Flask(__name__)
 init_db()
 
-PRESETS = {
-    "animals": "I love cute animals, pets, wildlife, and heartwarming animal stories",
-    "foodie": "I want recipes, baking tips, cooking techniques, and food culture",
-    "science": "I want science breakthroughs, space, technology, and research news",
-    "creative": "I want art, design, photography, DIY projects, and creative inspiration",
-    "fitness": "I want workout tips, healthy living, nutrition advice, and wellness content"
-}
 
 PERSONAS = {
     "learner": {
@@ -30,6 +23,7 @@ PERSONAS = {
         "icon": "book-open",
         "description": "Learn something specific",
         "preference": "I want to learn and understand things in depth. Prioritise educational, well-explained, evidence-based content on my chosen topic. Favour accuracy and depth over entertainment.",
+        "quality_baseline": "Favour posts with substance: real explanations, cited sources, or genuine expertise. Penalise shallow takes, listicles with no depth, and engagement-bait titles.",
         "sort": "top",
         "time_filter": "month",
     },
@@ -38,6 +32,7 @@ PERSONAS = {
         "icon": "compass",
         "description": "Discover new perspectives",
         "preference": "I want to discover things I wouldn't normally find. Prioritise novel, diverse, and unexpected content. Broaden my perspective beyond what I already know.",
+        "quality_baseline": "Favour posts that offer a genuine perspective or angle not commonly seen. Penalise generic takes, reposted content, and posts that exist only for upvotes.",
         "sort": "top",
         "time_filter": "week",
     },
@@ -46,6 +41,7 @@ PERSONAS = {
         "icon": "battery-charging",
         "description": "Unwind intentionally",
         "preference": "I want low-effort, pleasant content for downtime. Nothing stressful, heavy, or that requires concentration. Content should feel calm, light, and restorative.",
+        "quality_baseline": "Favour content that is genuinely warm, funny, or calming. Penalise anything emotionally charged, controversial, alarming, or that induces anxiety.",
         "sort": "hot",
         "time_filter": "day",
     },
@@ -54,6 +50,7 @@ PERSONAS = {
         "icon": "radio",
         "description": "Stay current and connected",
         "preference": "I want to stay up to date on what is happening. Prioritise recent, relevant content from my communities and topics. Include both news and community conversation.",
+        "quality_baseline": "Favour posts with verifiable information, credible sources, or meaningful community discussion. Penalise rumour, speculation presented as fact, and low-effort news reposts.",
         "sort": "new",
         "time_filter": "day",
     },
@@ -98,7 +95,15 @@ def search_for_subreddits(preference: str, limit: int = 3) -> list[str]:
         return []
 
 
-def extract_subreddits(preference: str) -> list[str]:
+def extract_subreddits(preference: str) -> tuple[list[str], set[str]]:
+    """
+    Discover subreddits for the given preference using Reddit search + LLM in parallel.
+
+    Returns:
+        Tuple of (final validated subreddit list, set of reddit-search confirmed names).
+        The second value is passed to the fetch layer so it can set min_upvotes=0
+        for directly-matched communities — without calling search_for_subreddits again.
+    """
     prompt = f"""A user described what they want to see in their social media feed:
 "{preference}"
 
@@ -136,25 +141,50 @@ Example for "machine learning research": MachineLearning, deeplearning, technolo
         valid_llm = [n for n, ok in zip(llm_only, results) if ok]
 
         valid = list(dict.fromkeys(reddit_candidates + valid_llm))
-        return valid if valid else llm_candidates[:3]
+        reddit_set = set(reddit_candidates)
+        return (valid if valid else llm_candidates[:3]), reddit_set
     except Exception as e:
         print(f"[app] extract_subreddits failed: {e}")
-        return []
+        return [], set()
 
 
-def generate_transparency_report(
-    preference: str,
+
+def _build_transparency_report(
     scored_posts: list,
     behaviour_context: str,
-    subreddits: list[str]
+    subreddits: list[str],
+    search_term: str,
+    persona_key: str,
+    sort_method: str,
+    time_filter: str,
 ) -> dict:
+    """
+    Build the full transparency report from deterministic data — no LLM call.
+
+    The 'understood' sentence is constructed from real pipeline variables:
+    post count, match rate, search term, persona sort window. Every word
+    is factually true and tells the user something they didn't already know.
+
+    Args:
+        scored_posts: All posts after scoring (visible + hidden).
+        behaviour_context: Serialised past interaction summary.
+        subreddits: Subreddit names that were fetched.
+        search_term: Raw user search input (e.g. "ESADE").
+        persona_key: Active persona key (e.g. "learner").
+        sort_method: Reddit sort used — "top", "hot", "new".
+        time_filter: Reddit time window — "day", "week", "month".
+
+    Returns:
+        Complete transparency dict ready for the template.
+    """
     if not scored_posts:
         return {}
 
     visible = [p for p in scored_posts if not p.get("hidden")]
     hidden = [p for p in scored_posts if p.get("hidden")]
 
-    buckets = {"high": 0, "mid": 0, "low": 0, "unscored": 0}
+    # Score distribution buckets
+    buckets: dict[str, int] = {"high": 0, "mid": 0, "low": 0, "unscored": 0}
     for p in visible:
         r = p.get("relevance", 50)
         reason = p.get("reason", "")
@@ -167,17 +197,15 @@ def generate_transparency_report(
         else:
             buckets["low"] += 1
 
-    subreddit_scores = {}
+    # Per-subreddit average relevance
+    subreddit_scores: dict[str, list[int]] = {}
     for p in visible:
         handle = p.get("handle", "unknown")
-        if handle not in subreddit_scores:
-            subreddit_scores[handle] = []
-        subreddit_scores[handle].append(p.get("relevance", 50))
-    subreddit_avg = {
-        k: round(sum(v) / len(v)) for k, v in subreddit_scores.items()
-    }
+        subreddit_scores.setdefault(handle, []).append(p.get("relevance", 50))
+    subreddit_avg = {k: round(sum(v) / len(v)) for k, v in subreddit_scores.items()}
 
-    filter_breakdown = {"toxic": 0, "sponsored": 0, "ragebait": 0}
+    # Filter breakdown
+    filter_breakdown: dict[str, int] = {"toxic": 0, "sponsored": 0, "ragebait": 0}
     for p in hidden:
         if p.get("is_toxic"):
             filter_breakdown["toxic"] += 1
@@ -186,57 +214,57 @@ def generate_transparency_report(
         if p.get("is_ragebait"):
             filter_breakdown["ragebait"] += 1
 
-    avg_score = round(
-        sum(p.get("relevance", 0) for p in visible) / len(visible)
-    ) if visible else 0
+    avg_score = (
+        round(sum(p.get("relevance", 0) for p in visible) / len(visible))
+        if visible else 0
+    )
 
-    prompt = f"""A user set this preference for their social media feed:
-"{preference}"
+    # Build the 'understood' sentence from real pipeline facts
+    total_posts = len(scored_posts)
+    scoreable = [
+        p for p in visible
+        if p.get("reason", "") not in ("Not scored", "Could not score this post.", "Scoring unavailable")
+        and p.get("relevance", 50) != 50
+    ]
+    strong_count = buckets["high"]
+    strong_pct = round(strong_count / len(scoreable) * 100) if scoreable else 0
 
-The algorithm searched: {', '.join(subreddits)}.
-Scored {len(scored_posts)} posts total. Average relevance of visible posts: {avg_score}/100.
-Score distribution: {buckets['high']} posts scored 70+, {buckets['mid']} scored 45-69, {buckets['low']} scored below 45.
-{len(hidden)} posts filtered ({filter_breakdown['toxic']} toxic, {filter_breakdown['sponsored']} sponsored, {filter_breakdown['ragebait']} rage-bait).
-{f'Behaviour history used: {behaviour_context}' if behaviour_context else 'No behaviour history — scored on stated preference only.'}
+    # Human-readable time window
+    time_labels = {
+        "hour": "the past hour",
+        "day": "the past 24 hours",
+        "week": "the past week",
+        "month": "the past month",
+        "year": "the past year",
+    }
+    sort_labels = {
+        "top": "top-voted",
+        "hot": "trending",
+        "new": "newest",
+        "rising": "rising",
+    }
+    time_str = time_labels.get(time_filter, f"the past {time_filter}")
+    sort_str = sort_labels.get(sort_method, sort_method)
+    topic_str = f'"{search_term}"' if search_term else "your preference"
+    behaviour_note = " Past interactions shaped 20% of the ranking." if behaviour_context else ""
 
-Write a transparency report in 3 short sections:
-1. "How I understood your preference" — one sentence explaining what the algorithm focused on
-2. "What I prioritised" — two to three bullet points, each max 10 words
-3. "What I filtered out" — one sentence summarising what was removed and why
+    understood = (
+        f"Pulled {total_posts} {sort_str} posts from {len(subreddits)} "
+        f"{'community' if len(subreddits) == 1 else 'communities'} over {time_str}. "
+        f"{strong_pct}% matched {topic_str} well.{behaviour_note}"
+    )
 
-Reply in JSON with keys: understood (string), prioritised (array of strings), filtered_out (string).
-No markdown, no backticks."""
+    return {
+        "understood": understood,
+        "buckets": buckets,
+        "subreddit_avg": subreddit_avg,
+        "filter_breakdown": filter_breakdown,
+        "avg_score": avg_score,
+        "behaviour_used": bool(behaviour_context),
+        "interaction_count": len(behaviour_context.split(";")) if behaviour_context else 0,
+        "subreddits": subreddits,
+    }
 
-    try:
-        response = co.chat(
-            model="command-a-03-2025",
-            messages=[{"role": "user", "content": prompt}]
-        )
-        raw = response.message.content[0].text.strip()
-        raw = raw.replace("```json", "").replace("```", "").strip()
-        report = json.loads(raw)
-        report["buckets"] = buckets
-        report["subreddit_avg"] = subreddit_avg
-        report["filter_breakdown"] = filter_breakdown
-        report["avg_score"] = avg_score
-        report["behaviour_used"] = bool(behaviour_context)
-        report["interaction_count"] = len(behaviour_context.split(";")) if behaviour_context else 0
-        report["subreddits"] = subreddits
-        return report
-    except Exception as e:
-        print(f"[transparency] Failed: {e}")
-        return {
-            "understood": f"Focused on: {preference[:80]}",
-            "prioritised": ["Posts matching your stated topic", "Clean, non-toxic content"],
-            "filtered_out": f"{len(hidden)} posts removed by your filters.",
-            "buckets": buckets,
-            "subreddit_avg": subreddit_avg,
-            "filter_breakdown": filter_breakdown,
-            "avg_score": avg_score,
-            "behaviour_used": bool(behaviour_context),
-            "interaction_count": 0,
-            "subreddits": subreddits,
-        }
 
 
 @app.route("/", methods=["GET", "POST"])
@@ -253,6 +281,8 @@ def home():
     subreddits_used = []
     tone_breakdown = {}
     tone_warning = False
+    sort_method = "top"
+    time_filter = "week"
     filters = {"toxic": True, "sponsored": True, "ragebait": True}
 
     if request.method == "POST":
@@ -275,6 +305,8 @@ def home():
             parts.append(f"PRIMARY TOPIC: {preference.strip()}.")
         if persona:
             parts.append(f"User intent context: {persona['preference']}")
+        if persona.get("quality_baseline"):
+            parts.append(f"Quality standard: {persona['quality_baseline']}")
         if selected_tones:
             tone_labels = [TONES[t]["label"] for t in selected_tones if t in TONES]
             parts.append(f"Desired tone: {', '.join(tone_labels)}.")
@@ -284,22 +316,25 @@ def home():
         full_preference = " ".join(parts) if parts else "Show me interesting content"
 
         behaviour_context = get_interaction_context()
-        subreddits_used = extract_subreddits(full_preference)
 
-        if not subreddits_used:
-            print("[app] No valid subreddits found — will rely on search fallback")
-
-        cached = None if force_refresh else get_cached(full_preference, subreddits_used)
+        # --- Cache lookup happens BEFORE extract_subreddits ---
+        # This skips the 5-8s LLM+Reddit subreddit discovery call on hits.
+        # Cache is keyed by raw search term only (see cache.py), persisted
+        # to SQLite so it survives Flask restarts.
+        cached = None if force_refresh else get_cached(preference.strip(), persona_key)
 
         if cached:
-            print(f"[cache] HIT for: {full_preference[:60]}")
-            scored_posts = [p.copy() for p in cached]
-            original_posts = [p.copy() for p in cached]
+            scored_posts, subreddits_used = cached
+            scored_posts = [p.copy() for p in scored_posts]
+            original_posts = [p.copy() for p in scored_posts]
         else:
-            print(f"[cache] MISS — fetching from Reddit")
-            all_posts = []
+            # Cache miss — run full pipeline
+            subreddits_used, reddit_matched_subs = extract_subreddits(full_preference)
 
-            reddit_matched_subs = set(search_for_subreddits(full_preference))
+            if not subreddits_used:
+                print("[app] No valid subreddits found — will rely on search fallback")
+
+            all_posts: list[dict] = []
 
             def fetch_subreddit(sub):
                 min_ups = 0 if sub in reddit_matched_subs else -1
@@ -320,21 +355,47 @@ def home():
                     except Exception as e:
                         print(f"[fetch] Error: {e}")
 
-            # Fallback: if subreddits returned nothing, use search only
             if not all_posts and preference.strip():
                 print("[app] No posts from subreddits — using search-only fallback")
                 all_posts = search_reddit(preference.strip(), 15)
 
             unique_posts = deduplicate_posts(all_posts)
-            original_posts = [p.copy() for p in unique_posts]
-            scored_posts = score_posts(full_preference, unique_posts, behaviour_context)
-            # Store clean copy before filter mutation
-            set_cached(full_preference, subreddits_used, [p.copy() for p in scored_posts])
 
-        transparency = generate_transparency_report(
-            full_preference, scored_posts, behaviour_context, subreddits_used
+            # Cap at 30 posts before scoring. Cohere latency scales with
+            # prompt token count — sending 70 posts takes 3-4x longer than
+            # sending 30, with diminishing quality return. Sort by engagement
+            # rate first so the best candidates are kept.
+            unique_posts.sort(key=lambda x: x.get("engagement_rate", 0), reverse=True)
+            unique_posts = unique_posts[:30]
+
+            original_posts = [p.copy() for p in unique_posts]
+
+            # score_posts and generate_filter_chips run concurrently
+            with ThreadPoolExecutor(max_workers=2) as executor:
+                score_future = executor.submit(
+                    score_posts, full_preference, unique_posts, behaviour_context
+                )
+                chips_future = executor.submit(generate_filter_chips, preference)
+
+                scored_posts = score_future.result()
+                filter_chips = chips_future.result()
+
+            # Persist to SQLite cache — survives restarts
+            set_cached(preference.strip(), persona_key, subreddits_used, [p.copy() for p in scored_posts])
+
+        # chips on cache hit — only remaining LLM call
+        if cached:
+            filter_chips = generate_filter_chips(preference)
+
+        transparency = _build_transparency_report(
+            scored_posts,
+            behaviour_context,
+            subreddits_used,
+            search_term=preference.strip(),
+            persona_key=persona_key,
+            sort_method=sort_method,
+            time_filter=time_filter,
         )
-        filter_chips = generate_filter_chips(preference)
 
         for p in scored_posts:
             if filters["toxic"] and p.get("is_toxic"):
@@ -383,7 +444,6 @@ def home():
         persona_key=persona_key,
         selected_tones=selected_tones,
         filtered_count=filtered_count,
-        presets=PRESETS,
         personas=PERSONAS,
         tones=TONES,
         transparency=transparency,
