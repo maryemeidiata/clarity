@@ -1,9 +1,12 @@
+#scoring module — cohere batch scoring + vader sentiment
 import cohere
 import json
 import os
 from dotenv import load_dotenv
+#vader: rules-based sentiment analyser built for social media text, runs locally w no api call
 from vaderSentiment.vaderSentiment import SentimentIntensityAnalyzer
 
+#single vader instance reused across all calls -> no overhead from re-initialising
 _vader = SentimentIntensityAnalyzer()
 
 load_dotenv()
@@ -14,15 +17,19 @@ def score_posts(preference, posts, behaviour_context=""):
     if not posts:
         return []
 
+    #format all posts into a single string -> one batch call instead of n individual calls
     posts_text = ""
     for i, post in enumerate(posts):
         posts_text += f"\n[POST {i}] by {post['author']} in {post['handle']}: {post['text'][:250]}\n"
 
+    #behaviour context is optional — only injected if past interactions exist
     behaviour_line = (
         f"\nUser behaviour history (secondary signal, weight 0.2): {behaviour_context}"
         if behaviour_context else ""
     )
 
+    #scoring rubric with explicit bands -> prevents score clustering around 50
+    #calibrated after testing: generic on-topic = 55-65, deep specific match = 80+
     prompt = f"""You are scoring social media posts for a personalised feed re-ranking system.
 
 User preference: "{preference}"{behaviour_line}
@@ -60,9 +67,11 @@ Score all {len(posts)} posts:"""
         )
 
         raw = response.message.content[0].text.strip()
+        #strip markdown code fences in case cohere wraps json in backticks
         raw = raw.replace("```json", "").replace("```", "").strip()
         results = json.loads(raw)
 
+        #map results back to posts by index -> cohere returns same order as input
         for result in results:
             idx = result.get("post_index", -1)
             if 0 <= idx < len(posts):
@@ -73,6 +82,7 @@ Score all {len(posts)} posts:"""
                 posts[idx]["reason"] = result.get("reason", "")
 
     except Exception as e:
+        #scoring failed -> set safe defaults so pipeline doesn't break
         print(f"[scorer] Batch scoring failed: {e}")
         for post in posts:
             post.setdefault("relevance", 50)
@@ -81,7 +91,7 @@ Score all {len(posts)} posts:"""
             post.setdefault("is_ragebait", False)
             post.setdefault("reason", "Could not score this post.")
 
-    # Ensure every post has all required fields
+    #safety net for any post that slipped through without fields
     for post in posts:
         if "relevance" not in post:
             post["relevance"] = 50
@@ -90,7 +100,8 @@ Score all {len(posts)} posts:"""
             post["is_ragebait"] = False
             post["reason"] = "Not scored"
 
-    # VADER sentiment scoring — runs locally, no API call
+    #vader runs after cohere — local, instant, no api call
+    #compound score: -1 (most negative) to +1 (most positive), thresholds from vader docs
     for post in posts:
         score = _vader.polarity_scores(post.get("text", ""))["compound"]
         post["sentiment_score"] = round(score, 3)
@@ -108,6 +119,7 @@ def generate_filter_chips(preference: str) -> list[str]:
     if not preference or len(preference.strip()) < 5:
         return []
 
+    #llm generates sub-topic chips -> user can click to narrow scoring focus
     prompt = f"""A user wants to browse social media about: "{preference}"
 
 Suggest 5-6 short filter labels (2-3 words each) that would help them narrow down the content.

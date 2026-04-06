@@ -1,14 +1,20 @@
+#feed module — reddit data fetching, search + deduplication
 import requests
 import time
+import random
 
 
 def get_posts_from_subreddit(subreddit: str, limit: int = 25, sort: str = "top", time_filter: str = "week", min_upvotes: int = -1) -> list[dict]:
     url = f"https://www.reddit.com/r/{subreddit}/{sort}.json"
+    #user-agent required — reddit blocks requests w no agent
     headers = {"User-Agent": "Clarity/1.0"}
     params = {"limit": limit, "t": time_filter}
 
     try:
+        #jitter before each request -> staggers parallel calls + reduces 429 risk
+        time.sleep(random.uniform(0.1, 0.5))
         response = requests.get(url, headers=headers, params=params, timeout=6)
+        #429 = rate limited -> back off 3s + retry once
         if response.status_code == 429:
             print(f"[feed] 429 for r/{subreddit} — backing off 3s")
             time.sleep(3)
@@ -27,7 +33,8 @@ def get_posts_from_subreddit(subreddit: str, limit: int = 25, sort: str = "top",
         p = item["data"]
         ups = p.get("ups", 0)
 
-        # Dynamic upvote floor: override if min_upvotes explicitly set, else use defaults
+        #min_upvotes=-1 means use default floor — 0 means no floor (used for exact-match subreddits)
+        #default floor filters low-quality noise from broad subreddits
         if min_upvotes >= 0:
             min_ups = min_upvotes
         else:
@@ -41,8 +48,10 @@ def get_posts_from_subreddit(subreddit: str, limit: int = 25, sort: str = "top",
 
         created = p.get("created_utc", now)
         hours_old = max((now - created) / 3600, 1)
+        #engagement_rate = upvotes per hour -> normalises for post age
         engagement_rate = round(ups / hours_old, 1)
 
+        #extract image url if available — used for post card display
         image_url = None
         post_hint = p.get("post_hint", "")
         if post_hint == "image":
@@ -67,18 +76,21 @@ def get_posts_from_subreddit(subreddit: str, limit: int = 25, sort: str = "top",
             "engagement_rate": engagement_rate,
         })
 
+    #sort by engagement_rate desc -> best posts first before deduplication cap
     posts.sort(key=lambda x: x["engagement_rate"], reverse=True)
     return posts
 
 
 def search_reddit(query: str, limit: int = 10) -> list[dict]:
     """Fetch posts via Reddit search for a specific query term — supplements subreddit fetches."""
+    #search endpoint searches across all of reddit by keyword -> finds niche posts subreddits miss
     now = time.time()
     url = "https://www.reddit.com/search.json"
     headers = {"User-Agent": "Clarity/1.0"}
     params = {"q": query, "limit": limit, "sort": "relevance", "t": "week"}
 
     try:
+        time.sleep(random.uniform(0.1, 0.5))
         response = requests.get(url, headers=headers, params=params, timeout=6)
         if response.status_code == 429:
             print(f"[feed] 429 on search '{query}' — backing off 3s")
@@ -95,6 +107,7 @@ def search_reddit(query: str, limit: int = 10) -> list[dict]:
     posts = []
     for item in response.json().get("data", {}).get("children", []):
         p = item["data"]
+        #lower upvote floor for search results — niche posts have few upvotes but high relevance
         if p.get("ups", 0) < 5:
             continue
 
@@ -123,6 +136,7 @@ def search_reddit(query: str, limit: int = 10) -> list[dict]:
             "comments": p.get("num_comments", 0),
             "time": created,
             "url": "https://reddit.com" + p.get("permalink", ""),
+            #source tagged differently so origin is traceable in the feed
             "source": "reddit_search",
             "image_url": image_url,
             "engagement_rate": round(p.get("ups", 0) / hours_old, 1),
@@ -131,6 +145,8 @@ def search_reddit(query: str, limit: int = 10) -> list[dict]:
 
 
 def deduplicate_posts(posts: list[dict], threshold: float = 0.7) -> list[dict]:
+    #word overlap dedup — removes near-identical posts from different subreddits
+    #threshold=0.7 means 70% word overlap -> considered duplicate
     unique = []
     seen_titles = []
 
@@ -151,6 +167,8 @@ def deduplicate_posts(posts: list[dict], threshold: float = 0.7) -> list[dict]:
 
 
 def validate_subreddit(name: str) -> bool:
+    #pings reddit about endpoint to check subreddit exists + is public
+    #used only for llm-suggested candidates — reddit search results skip this
     try:
         r = requests.get(
             f"https://www.reddit.com/r/{name}/about.json",

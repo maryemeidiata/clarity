@@ -1,14 +1,17 @@
+#database module — sqlite persistence for interactions, sessions + analytics
 import sqlite3
 
 DB_PATH = "clarity_users.db"
 
 def get_connection():
     conn = sqlite3.connect(DB_PATH)
+    #row_factory -> access columns by name instead of index
     conn.row_factory = sqlite3.Row
     return conn
 
 def init_db():
     conn = get_connection()
+    #create if not exists -> safe to call on every startup
     conn.executescript("""
         CREATE TABLE IF NOT EXISTS interactions (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -36,6 +39,7 @@ def init_db():
 
 def log_interaction(session_id: str, post_id: str,
                     post_text: str, signal: str, weight: float):
+    #thumbs up = weight 1.0, thumbs down = weight -1.0 -> used as behaviour context in next session
     conn = get_connection()
     conn.execute(
         "INSERT INTO interactions (session_id, post_id, post_text, signal, weight) "
@@ -47,6 +51,7 @@ def log_interaction(session_id: str, post_id: str,
 
 def log_session(session_id: str, preference: str, mood: str,
                 quality_score: int, post_count: int, filtered_count: int, avg_tone: float = 0.0):
+    #avg_tone = mean vader compound score across visible posts -> feeds wrapped mental health index
     conn = get_connection()
     conn.execute(
         "INSERT INTO sessions (session_id, preference, mood, quality_score, post_count, filtered_count, avg_tone) "
@@ -57,6 +62,7 @@ def log_session(session_id: str, preference: str, mood: str,
     conn.close()
 
 def get_interaction_context(limit: int = 20) -> str:
+    #returns last 20 interactions as a short string -> injected into scoring prompt at 0.2 weight
     conn = get_connection()
     rows = conn.execute(
         "SELECT post_text, signal, weight FROM interactions "
@@ -92,27 +98,27 @@ def get_analytics() -> dict:
         "FROM sessions ORDER BY created_at DESC LIMIT 10"
     ).fetchall()
 
-    # Per-topic tone averages for Mental Health Index
+    #group by preference -> avg tone per topic for mental health index in wrapped
     topic_tone = conn.execute(
         "SELECT preference, AVG(avg_tone) as tone, SUM(filtered_count) as filtered "
         "FROM sessions WHERE preference IS NOT NULL AND preference != '' "
         "GROUP BY preference ORDER BY tone ASC LIMIT 10"
     ).fetchall()
 
-    # Mood timeline — last 10 sessions with tone
+    #last 5 sessions w tone -> used in mood timeline bar chart in wrapped
     mood_timeline = conn.execute(
         "SELECT preference, avg_tone, created_at FROM sessions "
         "WHERE avg_tone IS NOT NULL ORDER BY created_at DESC LIMIT 5"
     ).fetchall()
 
-    # Healthiest topic
+    #topic w highest avg tone -> shown as healthiest topic badge in wrapped
     healthiest = conn.execute(
         "SELECT preference, AVG(avg_tone) as tone FROM sessions "
         "WHERE preference IS NOT NULL AND preference != '' "
         "GROUP BY preference ORDER BY tone DESC LIMIT 1"
     ).fetchone()
 
-    # Biggest blind spot (most filtered topic)
+    #topic w most filtered posts -> shown as blind spot in wrapped
     blind_spot = conn.execute(
         "SELECT preference, SUM(filtered_count) as filtered FROM sessions "
         "WHERE preference IS NOT NULL AND preference != '' "

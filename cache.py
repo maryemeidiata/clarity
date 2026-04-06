@@ -1,10 +1,12 @@
+#cache module — sqlite-backed feed cache w ttl + md5 keying
 import time
 import json
 import hashlib
 import sqlite3
 
 DB_PATH = "clarity_users.db"
-CACHE_TTL = 1800  # 30 minutes
+#30 min ttl — long enough for a demo session, short enough that content feels fresh
+CACHE_TTL = 1800
 
 
 def _init_cache_table() -> None:
@@ -38,6 +40,7 @@ def _make_key(search_term: str, persona_key: str = "") -> str:
     Returns:
         MD5 hex digest of the normalised combined key.
     """
+    #normalise before hashing -> "Mental Health" + "learner" == "mental health" + "learner"
     normalised = search_term.lower().strip() + "|" + persona_key.lower().strip()
     return hashlib.md5(normalised.encode()).hexdigest()
 
@@ -65,6 +68,7 @@ def get_cached(search_term: str, persona_key: str = "") -> tuple[list[dict], lis
         if row is None:
             return None
 
+        #expired entry -> delete + return none so pipeline refetches
         if time.time() - row[2] > CACHE_TTL:
             _delete_entry(key)
             return None
@@ -93,6 +97,7 @@ def set_cached(search_term: str, persona_key: str, subreddits: list[str], posts:
     key = _make_key(search_term, persona_key)
     try:
         conn = sqlite3.connect(DB_PATH)
+        #upsert — updates existing entry if key exists, inserts otherwise
         conn.execute(
             """
             INSERT INTO feed_cache (key, posts_json, subs_json, created_at)
@@ -134,4 +139,5 @@ def clear_cache() -> None:
         print(f"[cache] Clear error: {e}")
 
 
+#runs once on import -> ensures table exists before any get/set calls
 _init_cache_table()

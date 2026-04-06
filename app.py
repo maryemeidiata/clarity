@@ -1,3 +1,4 @@
+#main app file — flask routes + pipeline orchestration
 from flask import Flask, render_template, request, jsonify
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from feed import get_posts_from_subreddit, validate_subreddit, deduplicate_posts, search_reddit
@@ -11,12 +12,15 @@ from dotenv import load_dotenv
 from db import init_db, log_interaction, get_interaction_context, log_session, get_analytics
 
 load_dotenv()
+#cohere clientv2 — newer interface required for command-a-03-2025
 co = cohere.ClientV2(os.getenv("COHERE_API_KEY"))
 
 app = Flask(__name__)
+#creates sqlite tables on startup if they don't exist yet
 init_db()
 
 
+#each persona maps to a different reddit sort + time window -> same search = different feed
 PERSONAS = {
     "learner": {
         "label": "Learner",
@@ -56,6 +60,7 @@ PERSONAS = {
     },
 }
 
+#tones inject additional scoring signal into the llm prompt
 TONES = {
     "funny":      {"label": "Funny",      "icon": "smile"},
     "inspiring":  {"label": "Inspiring",  "icon": "star"},
@@ -67,18 +72,22 @@ TONES = {
 
 def search_for_subreddits(preference: str, limit: int = 3) -> list[str]:
     """Search Reddit's subreddit index for subreddits matching the keyword."""
+    #strip structured prefix added later in the pipeline before extracting keywords
     raw = preference.split(".")[0]
     raw = raw.replace("PRIMARY TOPIC:", "").strip()
 
+    #filter out common words that would produce useless subreddit searches
     stop_words = {
         "i", "want", "to", "a", "an", "the", "and", "or", "for", "of",
         "in", "on", "about", "with", "my", "me", "show", "find", "get",
         "is", "are", "was", "be", "some", "more", "less", "all", "any"
     }
     words = [w.strip(".,!?") for w in raw.split() if w.lower().strip(".,!?") not in stop_words and len(w) > 2]
+    #use max 3 keywords -> keeps search specific enough to find real subreddits
     keyword = " ".join(words[:3]) if words else raw
 
     try:
+        #querying reddit's own subreddit search index -> results are confirmed to exist, no validation needed
         response = requests.get(
             "https://www.reddit.com/subreddits/search.json",
             headers={"User-Agent": "Clarity/1.0"},
@@ -89,6 +98,7 @@ def search_for_subreddits(preference: str, limit: int = 3) -> list[str]:
             print(f"[app] Subreddit search error {response.status_code} for '{keyword}'")
             return []
         children = response.json().get("data", {}).get("children", [])
+        #exclude private subreddits -> would return 403 on fetch
         return [c["data"]["display_name"] for c in children if c["data"].get("subreddit_type") != "private"]
     except Exception as e:
         print(f"[app] search_for_subreddits failed: {e}")
@@ -116,6 +126,7 @@ Reply ONLY with comma-separated names. Nothing else.
 Example for "machine learning research": MachineLearning, deeplearning, technology"""
 
     try:
+        #llm + reddit search run concurrently -> saves ~2-3s vs sequential
         with ThreadPoolExecutor(max_workers=2) as executor:
             llm_future = executor.submit(
                 lambda: co.chat(
@@ -131,15 +142,16 @@ Example for "machine learning research": MachineLearning, deeplearning, technolo
         raw = llm_response.message.content[0].text.strip().split(",")
         llm_candidates = [n.strip() for n in raw if n.strip()]
 
-        # Reddit search results take priority, LLM fills the rest
+        #reddit results first -> they are confirmed to exist + directly match keyword
         all_candidates = list(dict.fromkeys(reddit_candidates + llm_candidates))
 
-        # Validate LLM candidates only (Reddit search results already confirmed to exist)
+        #only validate llm candidates — reddit search results already confirmed to exist
         llm_only = [n for n in all_candidates if n not in reddit_candidates]
         with ThreadPoolExecutor(max_workers=max(len(llm_only), 1)) as executor:
             results = list(executor.map(validate_subreddit, llm_only))
         valid_llm = [n for n, ok in zip(llm_only, results) if ok]
 
+        #final list: reddit-confirmed first + valid llm suggestions after
         valid = list(dict.fromkeys(reddit_candidates + valid_llm))
         reddit_set = set(reddit_candidates)
         return (valid if valid else llm_candidates[:3]), reddit_set
@@ -183,7 +195,7 @@ def _build_transparency_report(
     visible = [p for p in scored_posts if not p.get("hidden")]
     hidden = [p for p in scored_posts if p.get("hidden")]
 
-    # Score distribution buckets
+    #bucket scores into bands -> used in transparency panel to show distribution
     buckets: dict[str, int] = {"high": 0, "mid": 0, "low": 0, "unscored": 0}
     for p in visible:
         r = p.get("relevance", 50)
@@ -197,14 +209,14 @@ def _build_transparency_report(
         else:
             buckets["low"] += 1
 
-    # Per-subreddit average relevance
+    #avg relevance per subreddit -> shows user which sources contributed quality content
     subreddit_scores: dict[str, list[int]] = {}
     for p in visible:
         handle = p.get("handle", "unknown")
         subreddit_scores.setdefault(handle, []).append(p.get("relevance", 50))
     subreddit_avg = {k: round(sum(v) / len(v)) for k, v in subreddit_scores.items()}
 
-    # Filter breakdown
+    #count filtered posts by type -> shown in transparency panel
     filter_breakdown: dict[str, int] = {"toxic": 0, "sponsored": 0, "ragebait": 0}
     for p in hidden:
         if p.get("is_toxic"):
@@ -219,7 +231,7 @@ def _build_transparency_report(
         if visible else 0
     )
 
-    # Build the 'understood' sentence from real pipeline facts
+    #build the understood sentence from real pipeline facts, not llm generation
     total_posts = len(scored_posts)
     scoreable = [
         p for p in visible
@@ -229,7 +241,7 @@ def _build_transparency_report(
     strong_count = buckets["high"]
     strong_pct = round(strong_count / len(scoreable) * 100) if scoreable else 0
 
-    # Human-readable time window
+    #human-readable labels for sort + time filter -> injected into transparency sentence
     time_labels = {
         "hour": "the past hour",
         "day": "the past 24 hours",
@@ -246,6 +258,7 @@ def _build_transparency_report(
     time_str = time_labels.get(time_filter, f"the past {time_filter}")
     sort_str = sort_labels.get(sort_method, sort_method)
     topic_str = f'"{search_term}"' if search_term else "your preference"
+    #behaviour note only shown if past interactions exist -> weight 0.2 in scoring
     behaviour_note = " Past interactions shaped 20% of the ranking." if behaviour_context else ""
 
     understood = (
@@ -296,31 +309,33 @@ def home():
         force_refresh = request.form.get("force_refresh") == "1"
 
         persona = PERSONAS.get(persona_key, {})
+        #persona determines which reddit sort + time window to use
         sort_method = persona.get("sort", "top")
         time_filter = persona.get("time_filter", "week")
 
-        # Build full_preference — search text is explicitly PRIMARY
+        #build full_preference by concatenating all signals — primary topic first
+        #this string goes directly into the cohere scoring prompt
         parts = []
         if preference.strip():
             parts.append(f"PRIMARY TOPIC: {preference.strip()}.")
         if persona:
             parts.append(f"User intent context: {persona['preference']}")
         if persona.get("quality_baseline"):
+            #quality baseline is persona-specific -> defines what "good" means for this user intent
             parts.append(f"Quality standard: {persona['quality_baseline']}")
         if selected_tones:
             tone_labels = [TONES[t]["label"] for t in selected_tones if t in TONES]
             parts.append(f"Desired tone: {', '.join(tone_labels)}.")
         if active_chips:
+            #active chips are sub-topic filters clicked by the user -> narrow the scoring focus
             parts.append(f"Focus specifically on: {', '.join(active_chips)}.")
 
         full_preference = " ".join(parts) if parts else "Show me interesting content"
 
+        #past thumbs up/down -> serialised into a short string, injected as 0.2 weight signal
         behaviour_context = get_interaction_context()
 
-        # --- Cache lookup happens BEFORE extract_subreddits ---
-        # This skips the 5-8s LLM+Reddit subreddit discovery call on hits.
-        # Cache is keyed by raw search term only (see cache.py), persisted
-        # to SQLite so it survives Flask restarts.
+        #cache lookup before subreddit discovery — skips the llm+reddit calls entirely on hit
         cached = None if force_refresh else get_cached(preference.strip(), persona_key)
 
         if cached:
@@ -328,7 +343,7 @@ def home():
             scored_posts = [p.copy() for p in scored_posts]
             original_posts = [p.copy() for p in scored_posts]
         else:
-            # Cache miss — run full pipeline
+            #cache miss — run full pipeline
             subreddits_used, reddit_matched_subs = extract_subreddits(full_preference)
 
             if not subreddits_used:
@@ -337,15 +352,19 @@ def home():
             all_posts: list[dict] = []
 
             def fetch_subreddit(sub):
+                #reddit-matched subs get upvote floor=0 -> niche communities have few upvotes but are highly relevant
+                #llm-suggested broader subs keep the default floor -> filters low-quality noise
                 min_ups = 0 if sub in reddit_matched_subs else -1
                 return get_posts_from_subreddit(
                     sub, limit=20, sort=sort_method, time_filter=time_filter, min_upvotes=min_ups
                 )
 
+            #all subreddit fetches + search run in parallel -> total time ~= slowest single request
             with ThreadPoolExecutor(max_workers=8) as executor:
                 futures = {}
                 for sub in subreddits_used:
                     futures[executor.submit(fetch_subreddit, sub)] = sub
+                #reddit keyword search supplements subreddit browsing — finds posts across all of reddit
                 if preference.strip():
                     futures[executor.submit(search_reddit, preference.strip(), 10)] = "search"
 
@@ -355,22 +374,21 @@ def home():
                     except Exception as e:
                         print(f"[fetch] Error: {e}")
 
+            #fallback if all subreddit fetches fail (e.g. 429 rate limit) -> search-only still gives results
             if not all_posts and preference.strip():
                 print("[app] No posts from subreddits — using search-only fallback")
                 all_posts = search_reddit(preference.strip(), 15)
 
             unique_posts = deduplicate_posts(all_posts)
 
-            # Cap at 30 posts before scoring. Cohere latency scales with
-            # prompt token count — sending 70 posts takes 3-4x longer than
-            # sending 30, with diminishing quality return. Sort by engagement
-            # rate first so the best candidates are kept.
+            #cap at 30 before scoring — cohere latency scales w token count, 30 posts is optimal tradeoff
+            #sort by engagement_rate first so the best candidates survive the cap
             unique_posts.sort(key=lambda x: x.get("engagement_rate", 0), reverse=True)
             unique_posts = unique_posts[:30]
 
             original_posts = [p.copy() for p in unique_posts]
 
-            # score_posts and generate_filter_chips run concurrently
+            #score_posts + generate_filter_chips both call cohere — run concurrently to save time
             with ThreadPoolExecutor(max_workers=2) as executor:
                 score_future = executor.submit(
                     score_posts, full_preference, unique_posts, behaviour_context
@@ -380,13 +398,14 @@ def home():
                 scored_posts = score_future.result()
                 filter_chips = chips_future.result()
 
-            # Persist to SQLite cache — survives restarts
+            #persist to sqlite cache — survives flask restarts unlike in-memory dict
             set_cached(preference.strip(), persona_key, subreddits_used, [p.copy() for p in scored_posts])
 
-        # chips on cache hit — only remaining LLM call
+        #on cache hit chips are the only remaining llm call — fast, non-blocking
         if cached:
             filter_chips = generate_filter_chips(preference)
 
+        #deterministic transparency — built from real pipeline vars, no llm generation
         transparency = _build_transparency_report(
             scored_posts,
             behaviour_context,
@@ -397,6 +416,8 @@ def home():
             time_filter=time_filter,
         )
 
+        #apply user filters — each flagged post is hidden + counted
+        #elif used so a post is never double-counted even if flagged on multiple axes
         for p in scored_posts:
             if filters["toxic"] and p.get("is_toxic"):
                 p["hidden"] = True
@@ -410,11 +431,12 @@ def home():
             else:
                 p["hidden"] = False
 
+        #sort by relevance descending -> highest-scoring posts shown first
         scored_posts.sort(key=lambda x: x.get("relevance", 0), reverse=True)
 
         visible = [p for p in scored_posts if not p["hidden"]]
 
-        # Tone breakdown across visible posts
+        #tone breakdown uses vader compound scores already attached to each post in scorer.py
         tone_counts = {"positive": 0, "neutral": 0, "negative": 0}
         for p in visible:
             tone_counts[p.get("tone", "neutral")] += 1
@@ -424,6 +446,7 @@ def home():
             "neutral": round(tone_counts["neutral"] / total_toned * 100),
             "negative": round(tone_counts["negative"] / total_toned * 100),
         }
+        #warning threshold at 40% negative -> signals high-risk feed to user
         tone_warning = tone_breakdown["negative"] > 40
         avg_tone = round(
             sum(p.get("sentiment_score", 0) for p in visible) / total_toned, 3
@@ -458,6 +481,7 @@ def home():
 
 @app.route("/interact", methods=["POST"])
 def interact():
+    #receives thumbs up/down from frontend -> persisted to sqlite for behaviour context
     data = request.get_json(silent=True)
     if not data:
         return jsonify({"status": "error"}), 400
@@ -473,6 +497,7 @@ def interact():
 
 @app.route("/refine", methods=["POST"])
 def refine():
+    #llm rewrites the preference string based on user feedback -> new string replaces old one in ui
     data = request.get_json(silent=True)
     if not data:
         return jsonify({"error": "No data"}), 400
@@ -503,6 +528,7 @@ Reply with ONLY the new preference string. No explanation, no quotes, no preambl
 
 @app.route("/generate_chips", methods=["POST"])
 def generate_chips():
+    #called async from frontend after user types preference -> chips load without blocking page
     data = request.get_json(silent=True)
     preference = data.get("preference", "") if data else ""
     if not preference.strip():
@@ -524,6 +550,7 @@ def wrapped_page():
         "healthiest_topic": analytics["healthiest_topic"],
         "blind_spot": analytics["blind_spot"],
     }
+    #pull last 30 session preferences -> fed to llm for content dna profiling
     conn = __import__('db').get_connection()
     rows = conn.execute(
         "SELECT preference FROM sessions WHERE preference IS NOT NULL AND preference != '' ORDER BY created_at DESC LIMIT 30"
@@ -532,6 +559,7 @@ def wrapped_page():
     all_prefs = " ".join([r["preference"] for r in rows]) if rows else ""
     if all_prefs:
         try:
+            #llm summarises search history into personality profile + top topics
             response = co.chat(
                 model="command-a-03-2025",
                 messages=[{"role": "user", "content": f"""Analyze these user feed preferences and extract their content DNA profile.
