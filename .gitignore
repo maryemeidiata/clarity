@@ -2,3 +2,4 @@
 __pycache__/
 clarity_users.db
 .claude/
+clarity_venv/
