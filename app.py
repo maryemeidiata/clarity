@@ -12,7 +12,7 @@ from dotenv import load_dotenv
 from db import init_db, log_interaction, get_interaction_context, log_session, get_analytics
 
 load_dotenv()
-#cohere clientv2 — newer interface required for command-a-03-2025
+#cohere clientv2, newer interface required for command-a-03-2025
 co = cohere.ClientV2(os.getenv("COHERE_API_KEY"))
 
 app = Flask(__name__)
@@ -145,7 +145,7 @@ Example for "machine learning research": MachineLearning, deeplearning, technolo
         #reddit results first -> they are confirmed to exist + directly match keyword
         all_candidates = list(dict.fromkeys(reddit_candidates + llm_candidates))
 
-        #only validate llm candidates — reddit search results already confirmed to exist
+        #only validate llm candidates, reddit search results already confirmed to exist
         llm_only = [n for n in all_candidates if n not in reddit_candidates]
         with ThreadPoolExecutor(max_workers=max(len(llm_only), 1)) as executor:
             results = list(executor.map(validate_subreddit, llm_only))
@@ -313,7 +313,7 @@ def home():
         sort_method = persona.get("sort", "top")
         time_filter = persona.get("time_filter", "week")
 
-        #build full_preference by concatenating all signals — primary topic first
+        #build full_preference by concatenating all signals w primary topic first
         #this string goes directly into the cohere scoring prompt
         parts = []
         if preference.strip():
@@ -335,7 +335,7 @@ def home():
         #past thumbs up/down -> serialised into a short string, injected as 0.2 weight signal
         behaviour_context = get_interaction_context()
 
-        #cache lookup before subreddit discovery — skips the llm+reddit calls entirely on hit
+        #cache lookup before subreddit discovery + skips the llm+reddit calls entirely on hit
         cached = None if force_refresh else get_cached(preference.strip(), persona_key)
 
         if cached:
@@ -343,7 +343,7 @@ def home():
             scored_posts = [p.copy() for p in scored_posts]
             original_posts = [p.copy() for p in scored_posts]
         else:
-            #cache miss — run full pipeline
+            #cache miss + run full pipeline
             subreddits_used, reddit_matched_subs = extract_subreddits(full_preference)
 
             if not subreddits_used:
@@ -364,7 +364,7 @@ def home():
                 futures = {}
                 for sub in subreddits_used:
                     futures[executor.submit(fetch_subreddit, sub)] = sub
-                #reddit keyword search supplements subreddit browsing — finds posts across all of reddit
+                #reddit keyword search supplements subreddit browsing + finds posts across all of reddit
                 if preference.strip():
                     futures[executor.submit(search_reddit, preference.strip(), 10)] = "search"
 
@@ -381,14 +381,14 @@ def home():
 
             unique_posts = deduplicate_posts(all_posts)
 
-            #cap at 30 before scoring — cohere latency scales w token count, 30 posts is optimal tradeoff
+            #cap at 30 before scoring, cohere latency scales w token count, 30 posts is optimal tradeoff
             #sort by engagement_rate first so the best candidates survive the cap
             unique_posts.sort(key=lambda x: x.get("engagement_rate", 0), reverse=True)
             unique_posts = unique_posts[:30]
 
             original_posts = [p.copy() for p in unique_posts]
 
-            #score_posts + generate_filter_chips both call cohere — run concurrently to save time
+            #score_posts + generate_filter_chips both call cohere + run concurrently to save time
             with ThreadPoolExecutor(max_workers=2) as executor:
                 score_future = executor.submit(
                     score_posts, full_preference, unique_posts, behaviour_context
@@ -398,14 +398,14 @@ def home():
                 scored_posts = score_future.result()
                 filter_chips = chips_future.result()
 
-            #persist to sqlite cache — survives flask restarts unlike in-memory dict
+            #persist to sqlite cache, survives flask restarts unlike in-memory dict
             set_cached(preference.strip(), persona_key, subreddits_used, [p.copy() for p in scored_posts])
 
-        #on cache hit chips are the only remaining llm call — fast, non-blocking
+        #on cache hit chips are the only remaining llm call, fast + non-blocking
         if cached:
             filter_chips = generate_filter_chips(preference)
 
-        #deterministic transparency — built from real pipeline vars, no llm generation
+        #deterministic transparency, built from real pipeline vars, no llm generation
         transparency = _build_transparency_report(
             scored_posts,
             behaviour_context,
@@ -416,7 +416,7 @@ def home():
             time_filter=time_filter,
         )
 
-        #apply user filters — each flagged post is hidden + counted
+        #apply user filters, each flagged post is hidden + counted
         #elif used so a post is never double-counted even if flagged on multiple axes
         for p in scored_posts:
             if filters["toxic"] and p.get("is_toxic"):

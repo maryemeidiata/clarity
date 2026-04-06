@@ -1,4 +1,4 @@
-#feed module — reddit data fetching, search + deduplication
+#feed module: reddit data fetching, search + deduplication
 import requests
 import time
 import random
@@ -6,7 +6,7 @@ import random
 
 def get_posts_from_subreddit(subreddit: str, limit: int = 25, sort: str = "top", time_filter: str = "week", min_upvotes: int = -1) -> list[dict]:
     url = f"https://www.reddit.com/r/{subreddit}/{sort}.json"
-    #user-agent required — reddit blocks requests w no agent
+    #user-agent required, reddit blocks requests w no agent
     headers = {"User-Agent": "Clarity/1.0"}
     params = {"limit": limit, "t": time_filter}
 
@@ -33,7 +33,7 @@ def get_posts_from_subreddit(subreddit: str, limit: int = 25, sort: str = "top",
         p = item["data"]
         ups = p.get("ups", 0)
 
-        #min_upvotes=-1 means use default floor — 0 means no floor (used for exact-match subreddits)
+        #min_upvotes=-1 means use default floor, 0 means no floor (used for exact-match subreddits)
         #default floor filters low-quality noise from broad subreddits
         if min_upvotes >= 0:
             min_ups = min_upvotes
@@ -51,7 +51,7 @@ def get_posts_from_subreddit(subreddit: str, limit: int = 25, sort: str = "top",
         #engagement_rate = upvotes per hour -> normalises for post age
         engagement_rate = round(ups / hours_old, 1)
 
-        #extract image url if available — used for post card display
+        #extract image url if available, used for post card display
         image_url = None
         post_hint = p.get("post_hint", "")
         if post_hint == "image":
@@ -107,7 +107,7 @@ def search_reddit(query: str, limit: int = 10) -> list[dict]:
     posts = []
     for item in response.json().get("data", {}).get("children", []):
         p = item["data"]
-        #lower upvote floor for search results — niche posts have few upvotes but high relevance
+        #lower upvote floor for search results: niche posts have few upvotes but high relevance!!
         if p.get("ups", 0) < 5:
             continue
 
@@ -145,7 +145,7 @@ def search_reddit(query: str, limit: int = 10) -> list[dict]:
 
 
 def deduplicate_posts(posts: list[dict], threshold: float = 0.7) -> list[dict]:
-    #word overlap dedup — removes near-identical posts from different subreddits
+    #word overlap dedup: removes near-identical posts from different subreddits
     #threshold=0.7 means 70% word overlap -> considered duplicate
     unique = []
     seen_titles = []
@@ -168,7 +168,7 @@ def deduplicate_posts(posts: list[dict], threshold: float = 0.7) -> list[dict]:
 
 def validate_subreddit(name: str) -> bool:
     #pings reddit about endpoint to check subreddit exists + is public
-    #used only for llm-suggested candidates — reddit search results skip this
+    #used only for llm-suggested candidates: reddit search results skip this
     try:
         r = requests.get(
             f"https://www.reddit.com/r/{name}/about.json",

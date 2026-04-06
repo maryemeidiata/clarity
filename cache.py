@@ -5,7 +5,7 @@ import hashlib
 import sqlite3
 
 DB_PATH = "clarity_users.db"
-#30 min ttl — long enough for a demo session, short enough that content feels fresh
+#30 min ttl: long enough for a demo session, short enough that content feels fresh
 CACHE_TTL = 1800
 
 
@@ -40,7 +40,7 @@ def _make_key(search_term: str, persona_key: str = "") -> str:
     Returns:
         MD5 hex digest of the normalised combined key.
     """
-    #normalise before hashing -> "Mental Health" + "learner" == "mental health" + "learner"
+    #normalise before hashing
     normalised = search_term.lower().strip() + "|" + persona_key.lower().strip()
     return hashlib.md5(normalised.encode()).hexdigest()
 
@@ -97,7 +97,7 @@ def set_cached(search_term: str, persona_key: str, subreddits: list[str], posts:
     key = _make_key(search_term, persona_key)
     try:
         conn = sqlite3.connect(DB_PATH)
-        #upsert — updates existing entry if key exists, inserts otherwise
+        #upsert: updates existing entry if key exists, inserts otherwise
         conn.execute(
             """
             INSERT INTO feed_cache (key, posts_json, subs_json, created_at)

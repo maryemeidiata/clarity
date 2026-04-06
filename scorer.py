@@ -1,4 +1,4 @@
-#scoring module — cohere batch scoring + vader sentiment
+#scoring module: cohere batch scoring + vader sentiment
 import cohere
 import json
 import os
@@ -22,7 +22,7 @@ def score_posts(preference, posts, behaviour_context=""):
     for i, post in enumerate(posts):
         posts_text += f"\n[POST {i}] by {post['author']} in {post['handle']}: {post['text'][:250]}\n"
 
-    #behaviour context is optional — only injected if past interactions exist
+    #behaviour context is optional: only injected if past interactions exist
     behaviour_line = (
         f"\nUser behaviour history (secondary signal, weight 0.2): {behaviour_context}"
         if behaviour_context else ""
@@ -100,7 +100,7 @@ Score all {len(posts)} posts:"""
             post["is_ragebait"] = False
             post["reason"] = "Not scored"
 
-    #vader runs after cohere — local, instant, no api call
+    #vader runs after cohere: local, instant, no api call
     #compound score: -1 (most negative) to +1 (most positive), thresholds from vader docs
     for post in posts:
         score = _vader.polarity_scores(post.get("text", ""))["compound"]
